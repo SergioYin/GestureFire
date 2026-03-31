@@ -51,7 +51,8 @@ let package = Package(
         .executableTarget(
             name: "GestureFireApp",
             dependencies: ["GestureFireEngine"],
-            path: "Sources/GestureFireApp"
+            path: "Sources/GestureFireApp",
+            exclude: ["Info.plist"]
         ),
 
         // MARK: - Tests
