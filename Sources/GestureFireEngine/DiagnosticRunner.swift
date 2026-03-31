@@ -23,6 +23,7 @@ public struct DiagnosticResult: Sendable {
 /// Protocol for Layer 1 diagnostic checks. Enables mock injection.
 public protocol DiagnosticChecking: Sendable {
     func checkAccessibility() -> Bool
+    func requestAccessibility() -> Bool
     func checkTouchFrames() async -> Bool
     func checkCGEventCreation() -> Bool
 }
@@ -36,16 +37,26 @@ public struct DiagnosticRunner: Sendable {
         self.checker = checker
     }
 
+    /// Request accessibility permission (shows system prompt if not granted).
+    /// Returns true if already granted.
+    @discardableResult
+    public func requestAccessibility() -> Bool {
+        checker.requestAccessibility()
+    }
+
     /// Run all Layer 1 diagnostic checks.
     public func runAll() async -> [DiagnosticResult] {
         var results: [DiagnosticResult] = []
 
-        // 1. Accessibility permission
-        let axOK = checker.checkAccessibility()
+        // 1. Accessibility permission — auto-request if not granted
+        var axOK = checker.checkAccessibility()
+        if !axOK {
+            axOK = checker.requestAccessibility()
+        }
         results.append(DiagnosticResult(
             name: "Accessibility Permission",
             status: axOK ? .pass : .fail,
-            fixInstruction: axOK ? nil : "Open System Settings → Privacy & Security → Accessibility → Enable GestureFire"
+            fixInstruction: axOK ? nil : "System Settings → Privacy & Security → Accessibility → find and enable GestureFire (check the exact executable path)"
         ))
 
         // 2. Touch frame reception
@@ -73,9 +84,15 @@ public struct SystemDiagnosticChecker: DiagnosticChecking, Sendable {
     public init() {}
 
     public func checkAccessibility() -> Bool {
-        // AXIsProcessTrusted() — requires ApplicationServices
-        // Deferred to runtime when linked with AppKit
         AXIsProcessTrusted()
+    }
+
+    public func requestAccessibility() -> Bool {
+        // AXIsProcessTrustedWithOptions with prompt=true shows the system dialog
+        // asking the user to grant accessibility permission.
+        let key = "AXTrustedCheckOptionPrompt" as CFString
+        let options = [key: true] as CFDictionary
+        return AXIsProcessTrustedWithOptions(options)
     }
 
     public func checkTouchFrames() async -> Bool {

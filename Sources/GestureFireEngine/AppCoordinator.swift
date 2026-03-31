@@ -42,6 +42,9 @@ public final class AppCoordinator: Observable {
         touchSource?.start()
         Logger.engine.info("GestureFire started")
 
+        // Request accessibility permission on first start (shows system dialog)
+        diagnosticRunner.requestAccessibility()
+
         // Cleanup old logs on startup
         try? fileLogger.cleanup()
     }
@@ -60,6 +63,11 @@ public final class AppCoordinator: Observable {
     /// Run Layer 1 diagnostics.
     public func runDiagnostics() async -> [DiagnosticResult] {
         await diagnosticRunner.runAll()
+    }
+
+    /// Show system accessibility permission prompt.
+    public func requestAccessibilityPermission() {
+        diagnosticRunner.requestAccessibility()
     }
 
     /// Whether touch frames have been received (for diagnostics).

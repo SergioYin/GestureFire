@@ -89,6 +89,7 @@ struct MockDiagnosticChecker: DiagnosticChecking {
     let cgEventCreatable: Bool
 
     func checkAccessibility() -> Bool { accessibilityGranted }
+    func requestAccessibility() -> Bool { accessibilityGranted }
     func checkTouchFrames() async -> Bool { touchFrameReceived }
     func checkCGEventCreation() -> Bool { cgEventCreatable }
 }
