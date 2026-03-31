@@ -6,6 +6,7 @@ struct DiagnosticView: View {
     @State private var results: [DiagnosticResult] = []
     @State private var isRunning = false
     @State private var layer2Confirmed: Bool?
+    @State private var pollTask: Task<Void, Never>?
 
     private var allLayer1Passed: Bool {
         !results.isEmpty && results.allSatisfy { $0.status == .pass }
@@ -24,7 +25,7 @@ struct DiagnosticView: View {
             GroupBox("Layer 1 — System Checks") {
                 VStack(alignment: .leading, spacing: 8) {
                     if results.isEmpty && !isRunning {
-                        Text("Click \"Run Diagnostics\" to check system status")
+                        Text("Checking...")
                             .foregroundColor(.secondary)
                     } else {
                         ForEach(Array(results.enumerated()), id: \.offset) { _, result in
@@ -44,17 +45,28 @@ struct DiagnosticView: View {
                         }
 
                         if hasAccessibilityFailure {
-                            Button("Request Accessibility Permission") {
+                            Divider()
+
+                            Button("Open System Settings & Request Permission") {
                                 coordinator.requestAccessibilityPermission()
-                                // Re-run after a short delay to let user respond
-                                Task {
-                                    try? await Task.sleep(for: .seconds(2))
-                                    isRunning = true
-                                    results = await coordinator.runDiagnostics()
-                                    isRunning = false
-                                }
                             }
                             .buttonStyle(.borderedProminent)
+
+                            // Show executable path so user can verify
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("This app's executable path:")
+                                    .font(.caption.bold())
+                                Text(ProcessInfo.processInfo.arguments.first ?? "unknown")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .textSelection(.enabled)
+                                Text("Make sure this exact path is enabled in System Settings → Accessibility")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                                Text("After granting permission, status will update automatically (or restart the app).")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
                 }
@@ -82,10 +94,10 @@ struct DiagnosticView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Possible causes:")
                                         .font(.caption.bold())
-                                    Text("• Target app is not in the foreground")
-                                    Text("• Shortcut is intercepted by another tool (BetterTouchTool, Raycast, etc.)")
-                                    Text("• The shortcut key doesn't do anything in that app")
-                                    Text("• No gesture is mapped yet — check Settings")
+                                    Text("- Target app is not in the foreground")
+                                    Text("- Shortcut is intercepted by another tool (BetterTouchTool, Raycast, etc.)")
+                                    Text("- The shortcut key doesn't do anything in that app")
+                                    Text("- No gesture is mapped yet — check Settings")
                                 }
                                 .font(.caption)
                                 .foregroundColor(.orange)
@@ -99,13 +111,9 @@ struct DiagnosticView: View {
             Spacer()
 
             HStack {
-                Button(isRunning ? "Running..." : "Run Diagnostics") {
+                Button(isRunning ? "Checking..." : "Re-run Diagnostics") {
                     layer2Confirmed = nil
-                    Task {
-                        isRunning = true
-                        results = await coordinator.runDiagnostics()
-                        isRunning = false
-                    }
+                    runChecks()
                 }
                 .disabled(isRunning)
                 .buttonStyle(.borderedProminent)
@@ -118,12 +126,47 @@ struct DiagnosticView: View {
             }
         }
         .padding()
-        .frame(minWidth: 420, minHeight: 320)
+        .frame(minWidth: 450, minHeight: 350)
         .task {
             // Auto-run on open
+            runChecks()
+            // Start polling if accessibility is not yet granted
+            startPollingIfNeeded()
+        }
+        .onDisappear {
+            pollTask?.cancel()
+        }
+    }
+
+    private func runChecks() {
+        Task {
             isRunning = true
             results = await coordinator.runDiagnostics()
             isRunning = false
+            // Start/stop polling based on results
+            if allLayer1Passed {
+                pollTask?.cancel()
+            } else {
+                startPollingIfNeeded()
+            }
+        }
+    }
+
+    private func startPollingIfNeeded() {
+        pollTask?.cancel()
+        pollTask = Task {
+            // Poll every 2 seconds until all checks pass or view disappears
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { break }
+                let newResults = await coordinator.runDiagnostics()
+                await MainActor.run {
+                    results = newResults
+                    if allLayer1Passed {
+                        pollTask?.cancel()
+                    }
+                }
+            }
         }
     }
 }
