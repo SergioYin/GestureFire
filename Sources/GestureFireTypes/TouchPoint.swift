@@ -1,14 +1,16 @@
 import Foundation
 
 /// State of an individual touch point on the trackpad.
-public enum TouchState: Int, Sendable, Codable {
-    case notTouching = 0
-    case starting = 1
-    case hovering = 2
-    case touching = 4
-    case moving = 5
-    case lifting = 6
-    case exited = 7
+/// Maps to OMS's OMSState values.
+public enum TouchState: String, Sendable, Codable {
+    case notTouching
+    case starting
+    case hovering
+    case making      // finger making contact
+    case touching    // finger fully touching
+    case breaking    // finger starting to lift
+    case lingering   // finger lingering after lift
+    case leaving     // finger leaving trackpad
 }
 
 /// A single touch point on the trackpad, abstracted from OMS.

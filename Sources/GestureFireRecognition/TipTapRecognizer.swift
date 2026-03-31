@@ -51,7 +51,7 @@ public struct TipTapRecognizer: GestureRecognizer {
             if frame.points.isEmpty { return .empty }
             // Start tracking
             var fingers: [Int32: TrackedFinger] = [:]
-            for p in frame.points where p.state == .touching || p.state == .moving {
+            for p in frame.points where p.state == .touching || p.state == .making {
                 fingers[p.id] = TrackedFinger(id: p.id, position: p.position, time: now)
             }
             if !fingers.isEmpty {
@@ -74,7 +74,7 @@ public struct TipTapRecognizer: GestureRecognizer {
 
             // Update existing fingers and add new ones
             var updatedFingers: [Int32: TrackedFinger] = [:]
-            for p in frame.points where p.state == .touching || p.state == .moving {
+            for p in frame.points where p.state == .touching || p.state == .making {
                 if var existing = fingers[p.id] {
                     existing.lastPosition = p.position
                     existing.lastTime = now
