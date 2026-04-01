@@ -117,20 +117,20 @@ These are strictly separated. Polling only ever checks. Request is triggered onl
 
 ```
 Sources/
-├── GestureFireTypes/       # 9 files — pure types + protocols
+├── GestureFireTypes/       # 10 files — pure types + protocols
 ├── GestureFireRecognition/ # 3 files — recognizers + loop
 ├── GestureFireIntegration/ # 2 files — OMS bridge
 ├── GestureFireShortcuts/   # 2 files — CGEvent keyboard
-├── GestureFireConfig/      # 3 files — persistence
-├── GestureFireEngine/      # 4 files — orchestration
-└── GestureFireApp/         # 4 files — SwiftUI UI
+├── GestureFireConfig/      # 4 files — persistence + presets
+├── GestureFireEngine/      # 7 files — orchestration + onboarding + samples
+└── GestureFireApp/         # 5 files — SwiftUI UI + onboarding wizard
 
 Tests/
-├── GestureFireTypesTests/       # 5 files, 45 tests
-├── GestureFireRecognitionTests/ # 3 files, 19 tests
-├── GestureFireShortcutsTests/   # 1 file, 4 tests
-├── GestureFireConfigTests/      # 2 files, 5 tests
-└── GestureFireEngineTests/      # 2 files, 9 tests
+├── GestureFireTypesTests/       # 7 files
+├── GestureFireRecognitionTests/ # 4 files
+├── GestureFireShortcutsTests/   # 1 file
+├── GestureFireConfigTests/      # 3 files
+└── GestureFireEngineTests/      # 5 files
 ```
 
-Total: 28 source files, 13 test files, 82 tests across 19 suites.
+Total: 33 source files, 20 test files, 123 tests across 26 suites.

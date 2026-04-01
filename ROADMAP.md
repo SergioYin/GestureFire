@@ -9,8 +9,8 @@
 |-------|------|-------|--------|
 | 1 | Core Loop | TipTap 4-direction + shortcut mapping + menu bar UI + diagnostics | ✅ Done |
 | 1H | Hardening | Engine state model, pipeline observability, permission safety, code review fixes | ✅ Done |
-| 1.5 | Onboarding + Calibration | First-run wizard, sample recording/replay, calibration flow | ⬜ Next |
-| 2 | Experience Polish | Sound feedback, status panel, log viewer, launch-at-login | ⬜ |
+| 1.5 | Onboarding + Calibration | First-run wizard, sample recording/replay, calibration flow | ✅ Done |
+| 2 | Experience Polish | Sound feedback, status panel, log viewer, launch-at-login | ⬜ Next |
 | 3 | More Gestures | Multi-finger tap, multi-finger swipe, corner tap | ⬜ |
 | 4 | Smart Tuning | Rejection tracking, keyboard correlation, auto-adjust parameters | ⬜ |
 | 5 | Personalization | Profiles, per-app mappings, import/export | ⬜ |
