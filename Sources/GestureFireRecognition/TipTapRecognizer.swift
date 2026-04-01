@@ -59,20 +59,11 @@ public struct TipTapRecognizer: GestureRecognizer {
             }
             return .empty
 
-        case .tracking(var fingers, var liftedFingers):
+        case .tracking(let fingers, var liftedFingers):
             // Clean up old lifted fingers (>1s)
             liftedFingers.removeAll { now.timeIntervalSince($0.liftTime) > 1.0 }
 
-            let currentIDs = Set(frame.points.map(\.id))
-
-            // Detect newly lifted fingers
-            for (id, finger) in fingers where !currentIDs.contains(id) {
-                if finger.duration < tapMaxSec && finger.isStationary(tolerance: tolerance) {
-                    liftedFingers.append(LiftedFinger(finger: finger, liftTime: now))
-                }
-            }
-
-            // Update existing fingers and add new ones
+            // Build current active fingers (touching/making only) FIRST
             var updatedFingers: [Int32: TrackedFinger] = [:]
             for p in frame.points where p.state == .touching || p.state == .making {
                 if var existing = fingers[p.id] {
@@ -84,6 +75,15 @@ public struct TipTapRecognizer: GestureRecognizer {
                 }
             }
 
+            // Detect lifted fingers: was tracked but no longer in active state.
+            // This catches fingers transitioning to .breaking/.leaving immediately,
+            // rather than waiting for the ID to fully disappear from the frame.
+            for (id, finger) in fingers where updatedFingers[id] == nil {
+                if finger.duration < tapMaxSec && finger.isStationary(tolerance: tolerance) {
+                    liftedFingers.append(LiftedFinger(finger: finger, liftTime: now))
+                }
+            }
+
             // Find hold fingers: stationary + held long enough
             let holdFingers = updatedFingers.values.filter { finger in
                 finger.isStationary(tolerance: tolerance) && finger.duration >= holdThresholdSec
@@ -91,7 +91,7 @@ public struct TipTapRecognizer: GestureRecognizer {
 
             // Try to match a lifted finger with a hold finger
             if let holdFinger = holdFingers.first {
-                for (index, lifted) in liftedFingers.enumerated().reversed() {
+                for lifted in liftedFingers.reversed() {
                     guard lifted.finger.id != holdFinger.id else { continue }
                     guard now.timeIntervalSince(lifted.liftTime) < 0.5 else { continue }
 
@@ -117,8 +117,16 @@ public struct TipTapRecognizer: GestureRecognizer {
         case .cooldown(let until):
             if now >= until {
                 state = .idle
-                // Re-process this frame in idle state
-                return processFrame(frame)
+                // Inline idle-state logic to avoid recursive mutating re-entry
+                if frame.points.isEmpty { return .empty }
+                var fingers: [Int32: TrackedFinger] = [:]
+                for p in frame.points where p.state == .touching || p.state == .making {
+                    fingers[p.id] = TrackedFinger(id: p.id, position: p.position, time: now)
+                }
+                if !fingers.isEmpty {
+                    state = .tracking(fingers: fingers, liftedFingers: [])
+                }
+                return .empty
             }
             return .empty
         }

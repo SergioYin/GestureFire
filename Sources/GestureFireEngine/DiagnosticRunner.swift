@@ -21,14 +21,16 @@ public struct DiagnosticResult: Sendable {
 }
 
 /// Protocol for Layer 1 diagnostic checks. Enables mock injection.
+/// All methods are read-only checks — none may trigger system prompts.
 public protocol DiagnosticChecking: Sendable {
+    /// Read current accessibility trust status. Must NOT trigger any system UI.
     func checkAccessibility() -> Bool
-    func requestAccessibility() -> Bool
     func checkTouchFrames() async -> Bool
     func checkCGEventCreation() -> Bool
 }
 
 /// Runs Layer 1 diagnostics (auto-detectable checks).
+/// Pure read-only — never triggers system permission prompts.
 /// Layer 2 (user confirmation) is handled in UI.
 public struct DiagnosticRunner: Sendable {
     private let checker: any DiagnosticChecking
@@ -37,22 +39,13 @@ public struct DiagnosticRunner: Sendable {
         self.checker = checker
     }
 
-    /// Request accessibility permission (shows system prompt if not granted).
-    /// Returns true if already granted.
-    @discardableResult
-    public func requestAccessibility() -> Bool {
-        checker.requestAccessibility()
-    }
-
     /// Run all Layer 1 diagnostic checks.
+    /// This is pure observation — it will NOT show any system dialogs.
     public func runAll() async -> [DiagnosticResult] {
         var results: [DiagnosticResult] = []
 
-        // 1. Accessibility permission — auto-request if not granted
-        var axOK = checker.checkAccessibility()
-        if !axOK {
-            axOK = checker.requestAccessibility()
-        }
+        // 1. Accessibility permission — check only, never prompt
+        let axOK = checker.checkAccessibility()
         results.append(DiagnosticResult(
             name: "Accessibility Permission",
             status: axOK ? .pass : .fail,
@@ -80,25 +73,21 @@ public struct DiagnosticRunner: Sendable {
 }
 
 /// System-level diagnostic checker using real macOS APIs.
+/// All methods are read-only — none trigger system permission prompts.
 public struct SystemDiagnosticChecker: DiagnosticChecking, Sendable {
-    public init() {}
+    private let touchFrameChecker: @Sendable () async -> Bool
+
+    public init(touchFrameChecker: @escaping @Sendable () async -> Bool = { false }) {
+        self.touchFrameChecker = touchFrameChecker
+    }
 
     public func checkAccessibility() -> Bool {
+        // AXIsProcessTrusted() is a pure read — no system UI.
         AXIsProcessTrusted()
     }
 
-    public func requestAccessibility() -> Bool {
-        // AXIsProcessTrustedWithOptions with prompt=true shows the system dialog
-        // asking the user to grant accessibility permission.
-        let key = "AXTrustedCheckOptionPrompt" as CFString
-        let options = [key: true] as CFDictionary
-        return AXIsProcessTrustedWithOptions(options)
-    }
-
     public func checkTouchFrames() async -> Bool {
-        // In real usage, OMSManager would set a flag after receiving first frame.
-        // For now, return true — actual implementation in AppCoordinator.
-        true
+        await touchFrameChecker()
     }
 
     public func checkCGEventCreation() -> Bool {
@@ -106,4 +95,13 @@ public struct SystemDiagnosticChecker: DiagnosticChecking, Sendable {
         let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true)
         return event != nil
     }
+}
+
+/// Standalone function for requesting accessibility permission.
+/// Shows the system prompt dialog. Must ONLY be called from explicit user actions.
+/// Returns true if permission is already granted (no prompt shown).
+public func requestAccessibilityPrompt() -> Bool {
+    let key = "AXTrustedCheckOptionPrompt" as CFString
+    let options = [key: true] as CFDictionary
+    return AXIsProcessTrustedWithOptions(options)
 }

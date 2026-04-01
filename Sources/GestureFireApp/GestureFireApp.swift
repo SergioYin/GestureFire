@@ -9,7 +9,7 @@ struct GestureFireApp: App {
     @State private var coordinator = AppCoordinator()
 
     var body: some Scene {
-        MenuBarExtra("GestureFire", systemImage: coordinator.isEnabled ? "hand.tap.fill" : "hand.tap") {
+        MenuBarExtra("GestureFire", systemImage: coordinator.engineState.systemImage) {
             MenuBarView(coordinator: coordinator)
         }
 

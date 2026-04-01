@@ -22,7 +22,6 @@ struct SettingsView: View {
 
 struct GestureMappingView: View {
     let coordinator: AppCoordinator
-
     var body: some View {
         Form {
             Section("TipTap Gestures") {
@@ -40,11 +39,16 @@ struct GestureMappingView: View {
                                         config.gestures.removeValue(forKey: gesture.rawValue)
                                     }
                                 }
-                                Task { await coordinator.reloadSensitivity() }
                             }
                         )
                     }
                 }
+            }
+
+            Section {
+                Text("Tip: Press Enter after typing a shortcut to save it.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
     }
@@ -56,22 +60,17 @@ struct ShortcutField: View {
     let shortcut: KeyShortcut?
     let onChange: (KeyShortcut?) -> Void
     @State private var text: String = ""
-    @State private var isEditing = false
+    @State private var parseError = false
 
     var body: some View {
         HStack {
             TextField("e.g. cmd+left", text: $text)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 200)
+                .foregroundColor(parseError ? .red : .primary)
                 .onAppear { text = shortcut?.stringValue ?? "" }
-                .onSubmit {
-                    if text.isEmpty {
-                        onChange(nil)
-                    } else if let parsed = try? KeyShortcut.parse(text) {
-                        onChange(parsed)
-                        text = parsed.stringValue
-                    }
-                }
+                .onSubmit { saveShortcut() }
+                .onChange(of: text) { parseError = false }
 
             if shortcut != nil {
                 Button(role: .destructive) {
@@ -83,6 +82,20 @@ struct ShortcutField: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    private func saveShortcut() {
+        if text.isEmpty {
+            onChange(nil)
+            return
+        }
+        if let parsed = try? KeyShortcut.parse(text) {
+            onChange(parsed)
+            text = parsed.stringValue
+            parseError = false
+        } else {
+            parseError = true
         }
     }
 }

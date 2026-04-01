@@ -4,7 +4,8 @@ import OpenMultitouchSupport
 
 /// Wraps OMS's OMSManager to produce TouchFrame values.
 /// The only component that directly uses OpenMultitouchSupport APIs.
-public final class OMSTouchSource: @unchecked Sendable {
+/// Actor-isolated to protect mutable state (task, hasReceivedFrame).
+public actor OMSTouchSource {
     private let manager = OMSManager.shared
     private var task: Task<Void, Never>?
     private let onFrame: @Sendable (TouchFrame) -> Void
@@ -19,11 +20,15 @@ public final class OMSTouchSource: @unchecked Sendable {
         task = Task { [weak self, manager] in
             for await touchData in manager.touchDataStream {
                 guard let self else { return }
-                self.hasReceivedFrame = true
+                await self.markReceivedFrame()
                 let frame = TouchFrameAdapter.convert(touchData)
                 self.onFrame(frame)
             }
         }
+    }
+
+    private func markReceivedFrame() {
+        hasReceivedFrame = true
     }
 
     public func stop() {
