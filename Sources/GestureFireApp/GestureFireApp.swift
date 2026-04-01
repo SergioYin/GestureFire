@@ -22,5 +22,17 @@ struct GestureFireApp: App {
             DiagnosticView(coordinator: coordinator)
         }
         .defaultSize(width: 400, height: 300)
+
+        Window("Welcome to GestureFire", id: "onboarding") {
+            if let onboarding = coordinator.onboardingCoordinator {
+                OnboardingView(coordinator: onboarding, appCoordinator: coordinator)
+            } else {
+                Text("Onboarding not active")
+                    .padding()
+            }
+        }
+        .defaultSize(width: 600, height: 480)
     }
+
+    // Onboarding auto-triggered from MenuBarView on first launch
 }

@@ -6,7 +6,22 @@ struct MenuBarView: View {
     let coordinator: AppCoordinator
     @Environment(\.openWindow) private var openWindow
 
+    @State private var hasShownOnboarding = false
+
     var body: some View {
+        // Auto-open onboarding on first launch
+        if coordinator.needsOnboarding && !hasShownOnboarding {
+            Color.clear.frame(width: 0, height: 0)
+                .onAppear {
+                    if !hasShownOnboarding {
+                        hasShownOnboarding = true
+                        coordinator.beginOnboarding()
+                        openWindow(id: "onboarding")
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
+                }
+        }
+
         // State display
         HStack(spacing: 4) {
             Image(systemName: coordinator.engineState.systemImage)
@@ -63,6 +78,12 @@ struct MenuBarView: View {
 
         Button("Diagnostics...") {
             openWindow(id: "diagnostics")
+            NSApp.activate(ignoringOtherApps: true)
+        }
+
+        Button("Setup Wizard...") {
+            coordinator.beginOnboarding()
+            openWindow(id: "onboarding")
             NSApp.activate(ignoringOtherApps: true)
         }
 
