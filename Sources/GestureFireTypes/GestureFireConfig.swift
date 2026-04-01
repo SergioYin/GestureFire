@@ -9,17 +9,26 @@ public struct GestureFireConfig: Sendable, Codable, Equatable {
     /// Gesture → shortcut mappings. Key is GestureType.rawValue.
     public var gestures: [String: KeyShortcut]
     public var sensitivity: SensitivityConfig
+    /// Whether the user has completed the onboarding wizard.
+    public var hasCompletedOnboarding: Bool
 
     public static let defaults = GestureFireConfig(
         version: 2,
         gestures: [:],
-        sensitivity: .defaults
+        sensitivity: .defaults,
+        hasCompletedOnboarding: false
     )
 
-    public init(version: Int = 2, gestures: [String: KeyShortcut] = [:], sensitivity: SensitivityConfig = .defaults) {
+    public init(
+        version: Int = 2,
+        gestures: [String: KeyShortcut] = [:],
+        sensitivity: SensitivityConfig = .defaults,
+        hasCompletedOnboarding: Bool = false
+    ) {
         self.version = version
         self.gestures = gestures
         self.sensitivity = sensitivity
+        self.hasCompletedOnboarding = hasCompletedOnboarding
     }
 
     /// Look up the shortcut mapped to a gesture type.
@@ -30,7 +39,7 @@ public struct GestureFireConfig: Sendable, Codable, Equatable {
     // MARK: - Codable with version defaulting
 
     private enum CodingKeys: String, CodingKey {
-        case version, gestures, sensitivity
+        case version, gestures, sensitivity, hasCompletedOnboarding
     }
 
     public init(from decoder: Decoder) throws {
@@ -38,5 +47,6 @@ public struct GestureFireConfig: Sendable, Codable, Equatable {
         version = try container.decodeIfPresent(Int.self, forKey: .version) ?? 1
         gestures = try container.decodeIfPresent([String: KeyShortcut].self, forKey: .gestures) ?? [:]
         sensitivity = try container.decodeIfPresent(SensitivityConfig.self, forKey: .sensitivity) ?? .defaults
+        hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
     }
 }

@@ -46,4 +46,25 @@ struct GestureFireConfigTests {
         let config = try JSONDecoder().decode(GestureFireConfig.self, from: Data(json.utf8))
         #expect(config.version == 1)
     }
+
+    @Test("Default config has hasCompletedOnboarding false")
+    func defaultOnboardingFlag() {
+        #expect(GestureFireConfig.defaults.hasCompletedOnboarding == false)
+    }
+
+    @Test("Config without hasCompletedOnboarding field defaults to false")
+    func onboardingBackwardsCompat() throws {
+        let json = #"{"version":2,"gestures":{},"sensitivity":{}}"#
+        let config = try JSONDecoder().decode(GestureFireConfig.self, from: Data(json.utf8))
+        #expect(config.hasCompletedOnboarding == false)
+    }
+
+    @Test("hasCompletedOnboarding round-trips through JSON")
+    func onboardingRoundTrip() throws {
+        var config = GestureFireConfig.defaults
+        config.hasCompletedOnboarding = true
+        let data = try JSONEncoder().encode(config)
+        let decoded = try JSONDecoder().decode(GestureFireConfig.self, from: data)
+        #expect(decoded.hasCompletedOnboarding == true)
+    }
 }
