@@ -84,7 +84,7 @@ Automated code review found 0 critical, 4 high, 6 medium, 5 low issues.
 - M2: `FileLogger.log` force-unwraps String/Data conversion
 - M3: `DiagnosticView` polling task lifecycle could use `.task(id:)`
 - M4: Unnecessary `reloadSensitivity()` call on gesture mapping change — **fixed** (removed)
-- M5: Magic numbers `0.5s`/`1.0s` in TipTapRecognizer should be named constants or config params
+- M5: Magic numbers `0.5s`/`1.0s` in TipTapRecognizer — **fixed** (now reads `tapGroupingWindowMs` from config)
 - M6: Dead `Key.Codable` conformance in `KeyShortcut`
 
 ### LOW issues (deferred)
@@ -101,6 +101,7 @@ Automated code review found 0 critical, 4 high, 6 medium, 5 low issues.
 - **Pipeline event flooding**: Initial implementation logged every frame. Fixed with deduplication (only log on finger count change), but more sophisticated filtering may be needed for Phase 2.
 - **No sample recording yet**: All testing is with constructed fixtures. Phase 1.5 sample recording/replay will close this gap.
 - **Settings save feedback**: No visual confirmation when a shortcut is saved successfully (only error on parse failure). Could add a brief success indicator.
+- **`directionAngleTolerance` not wired**: The parameter exists in `SensitivityConfig`, is exposed in Settings UI, and persists to config — but `TipTapRecognizer.computeDirection()` still uses a simple `abs(dx) > abs(dy)` check without applying the tolerance angle. Do not treat this as an active tunable parameter until the recognizer reads it. Carry-over to Phase 3 (when direction logic may need refinement for new gesture types).
 
 ## Phase 1.5 Readiness
 
