@@ -44,10 +44,21 @@ public struct GestureSample: Sendable, Equatable {
 // MARK: - JSONL Serialization
 
 extension GestureSample {
+    /// Create a fresh ISO8601 formatter with fractional seconds.
+    private static func makeFormatter() -> ISO8601DateFormatter {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }
+
     /// Encode to JSONL Data (line 1 = header, remaining lines = frames).
     public func toJSONL() throws -> Data {
+        let formatter = Self.makeFormatter()
         let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            var container = encoder.singleValueContainer()
+            try container.encode(formatter.string(from: date))
+        }
         encoder.outputFormatting = .sortedKeys
 
         var lines: [String] = []
@@ -65,8 +76,19 @@ extension GestureSample {
 
     /// Decode from JSONL Data.
     public static func fromJSONL(_ data: Data) throws -> GestureSample {
+        let formatter = makeFormatter()
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let string = try container.decode(String.self)
+            guard let date = formatter.date(from: string) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Invalid ISO8601 date: \(string)"
+                )
+            }
+            return date
+        }
 
         let content = String(data: data, encoding: .utf8) ?? ""
         let lines = content.split(separator: "\n", omittingEmptySubsequences: true)
