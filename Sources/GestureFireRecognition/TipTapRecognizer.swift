@@ -45,6 +45,8 @@ public struct TipTapRecognizer: GestureRecognizer {
         let holdThresholdSec = sensitivity.holdThresholdMs / 1000.0
         let tapMaxSec = sensitivity.tapMaxDurationMs / 1000.0
         let cooldownSec = sensitivity.debounceCooldownMs / 1000.0
+        let tapGroupingWindowSec = sensitivity.tapGroupingWindowMs / 1000.0
+        let liftedFingerEvictionSec = tapGroupingWindowSec * 2 // keep lifted fingers for 2× grouping window
 
         switch state {
         case .idle:
@@ -60,8 +62,8 @@ public struct TipTapRecognizer: GestureRecognizer {
             return .empty
 
         case .tracking(let fingers, var liftedFingers):
-            // Clean up old lifted fingers (>1s)
-            liftedFingers.removeAll { now.timeIntervalSince($0.liftTime) > 1.0 }
+            // Clean up old lifted fingers (eviction = 2× tap grouping window)
+            liftedFingers.removeAll { now.timeIntervalSince($0.liftTime) > liftedFingerEvictionSec }
 
             // Build current active fingers (touching/making only) FIRST
             var updatedFingers: [Int32: TrackedFinger] = [:]
@@ -93,7 +95,7 @@ public struct TipTapRecognizer: GestureRecognizer {
             if let holdFinger = holdFingers.first {
                 for lifted in liftedFingers.reversed() {
                     guard lifted.finger.id != holdFinger.id else { continue }
-                    guard now.timeIntervalSince(lifted.liftTime) < 0.5 else { continue }
+                    guard now.timeIntervalSince(lifted.liftTime) < tapGroupingWindowSec else { continue }
 
                     // Success — compute direction
                     let gesture = computeDirection(
