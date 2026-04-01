@@ -138,6 +138,38 @@ public final class AppCoordinator {
         await recognitionLoop.updateSensitivity(sensitivity)
     }
 
+    // MARK: - Onboarding
+
+    /// Whether the user has not yet completed the onboarding wizard.
+    public var needsOnboarding: Bool {
+        !configStore.config.hasCompletedOnboarding
+    }
+
+    /// The active onboarding coordinator, if onboarding is in progress.
+    public private(set) var onboardingCoordinator: OnboardingCoordinator?
+
+    /// Optional sample recorder for calibration — coordinator feeds frames to it.
+    @ObservationIgnored public private(set) var sampleRecorder: SampleRecorder?
+
+    /// Begin the onboarding flow. Creates coordinator + recorder.
+    public func beginOnboarding() {
+        let recorder = SampleRecorder(sensitivity: configStore.config.sensitivity)
+        self.sampleRecorder = recorder
+        self.onboardingCoordinator = OnboardingCoordinator(
+            configStore: configStore,
+            sampleRecorder: recorder,
+            engineDelegate: self
+        )
+        Logger.engine.info("Onboarding started")
+    }
+
+    /// End the onboarding flow. Nils out coordinator + recorder.
+    public func finishOnboarding() {
+        onboardingCoordinator = nil
+        sampleRecorder = nil
+        Logger.engine.info("Onboarding finished")
+    }
+
     // MARK: - Private — Startup
 
     private func beginListening() {
@@ -196,6 +228,9 @@ public final class AppCoordinator {
     // MARK: - Private — Frame handling
 
     private func handleFrame(_ frame: TouchFrame) async {
+        // Feed frame to sample recorder if active
+        sampleRecorder?.recordFrame(frame)
+
         // Transition from .starting → .running on first frame
         if case .starting = engineState {
             engineState = .running
@@ -271,5 +306,17 @@ public final class AppCoordinator {
         if recentEvents.count > 20 {
             recentEvents.removeFirst(recentEvents.count - 20)
         }
+    }
+}
+
+// MARK: - OnboardingEngineDelegate
+
+extension AppCoordinator: OnboardingEngineDelegate {
+    public func startEngine() {
+        start()
+    }
+
+    public func stopEngine() {
+        stop()
     }
 }
