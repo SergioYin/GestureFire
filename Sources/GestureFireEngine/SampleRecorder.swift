@@ -59,7 +59,9 @@ public final class SampleRecorder {
         }
 
         let data = try sample.toJSONL()
-        let fileName = "\(gestureType.rawValue)_\(ISO8601DateFormatter().string(from: Date())).gesturesample"
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let unique = UUID().uuidString.prefix(8)
+        let fileName = "\(gestureType.rawValue)_\(timestamp)_\(unique).gesturesample"
         let fileURL = directory.appendingPathComponent(fileName)
         try data.write(to: fileURL)
 

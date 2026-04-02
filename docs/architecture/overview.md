@@ -42,9 +42,12 @@ Trackpad → OMS → OMSTouchSource (actor)
               ▼                ▼
         .recognized       .rejected / .empty
               │
+              ├──► OnboardingCoordinator (if calibrating)
+              │        └── SampleRecorder → .gesturesample files
+              │
               ▼
      ConfigStore.shortcut(for:)
-              │
+              │  (suppressed during calibration)
               ▼
      KeyboardSimulator.fire()
          (CGEvent post)
@@ -62,8 +65,8 @@ Trackpad → OMS → OMSTouchSource (actor)
 | **GestureFireIntegration** | OMS bridge | `OMSTouchSource` (actor), `TouchFrameAdapter` |
 | **GestureFireShortcuts** | Keyboard simulation | `KeyboardSimulator`, `KeyCodeMap` |
 | **GestureFireConfig** | Persistence + migration | `ConfigStore` (`@Observable`), `ConfigPersistence`, `ConfigMigration` |
-| **GestureFireEngine** | Orchestration | `AppCoordinator` (`@Observable`, `@MainActor`), `DiagnosticRunner`, `FileLogger` |
-| **GestureFireApp** | SwiftUI UI | `MenuBarView`, `SettingsView`, `DiagnosticView` |
+| **GestureFireEngine** | Orchestration + onboarding | `AppCoordinator` (`@Observable`, `@MainActor`), `OnboardingCoordinator`, `SampleRecorder`, `SamplePlayer`, `DiagnosticRunner`, `FileLogger` |
+| **GestureFireApp** | SwiftUI UI + onboarding wizard | `MenuBarView`, `SettingsView`, `DiagnosticView`, `OnboardingView`, `OnboardingWindowController` |
 
 ## Concurrency Model
 
@@ -117,7 +120,7 @@ These are strictly separated. Polling only ever checks. Request is triggered onl
 
 ```
 Sources/
-├── GestureFireTypes/       # 10 files — pure types + protocols
+├── GestureFireTypes/       # 11 files — pure types + protocols
 ├── GestureFireRecognition/ # 3 files — recognizers + loop
 ├── GestureFireIntegration/ # 2 files — OMS bridge
 ├── GestureFireShortcuts/   # 2 files — CGEvent keyboard
@@ -130,7 +133,7 @@ Tests/
 ├── GestureFireRecognitionTests/ # 4 files
 ├── GestureFireShortcutsTests/   # 1 file
 ├── GestureFireConfigTests/      # 3 files
-└── GestureFireEngineTests/      # 5 files
+└── GestureFireEngineTests/      # 6 files
 ```
 
-Total: 33 source files, 20 test files, 123 tests across 26 suites.
+Total: 34 source files, 21 test files (~3,600 source LOC, ~2,250 test LOC).

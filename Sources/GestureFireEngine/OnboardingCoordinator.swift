@@ -56,6 +56,9 @@ public final class OnboardingCoordinator {
     public private(set) var currentCalibrationGesture: GestureType?
     public private(set) var isCalibrating = false
 
+    /// URLs of successfully recorded .gesturesample files.
+    public private(set) var recordedSampleURLs: [URL] = []
+
     /// How many attempts per gesture during calibration.
     public let attemptsPerGesture = 3
 
@@ -121,16 +124,32 @@ public final class OnboardingCoordinator {
         startPermissionPolling()
     }
 
-    /// Poll until permission is granted or task is cancelled.
+    /// Reset from "waiting" back to actionable state so user can retry.
+    public func resetPermissionState() {
+        permissionPollTask?.cancel()
+        permissionPollTask = nil
+        permissionState = AXIsProcessTrusted() ? .granted : .denied
+    }
+
+    /// Poll until permission is granted. If not granted after 30 polls (~30s),
+    /// reset to `.denied` so the user can click "Grant Access" again.
     private func startPermissionPolling() {
         permissionPollTask?.cancel()
         permissionPollTask = Task { [weak self] in
+            var pollCount = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 guard !Task.isCancelled, let self else { break }
+                pollCount += 1
                 if AXIsProcessTrusted() {
                     self.permissionState = .granted
                     Self.logger.info("Permission granted during onboarding")
+                    break
+                }
+                // After ~30 seconds of waiting, reset so user can retry
+                if pollCount >= 30 {
+                    self.permissionState = .denied
+                    Self.logger.info("Permission poll timed out — reset to denied")
                     break
                 }
             }
@@ -150,26 +169,69 @@ public final class OnboardingCoordinator {
     public func startCalibration() {
         isCalibrating = true
         calibrationResults = [:]
+        recordedSampleURLs = []
         for gesture in GestureType.allCases {
             calibrationResults[gesture] = []
         }
         currentCalibrationGesture = GestureType.allCases.first
         engineDelegate?.startEngine()
+
+        // Begin recording for the first gesture
+        if let first = currentCalibrationGesture {
+            sampleRecorder.startRecording(for: first)
+        }
+
         Self.logger.info("Calibration started")
     }
 
-    /// Record one calibration attempt result.
-    public func recordCalibrationAttempt(gesture: GestureType, success: Bool) {
-        calibrationResults[gesture, default: []].append(success)
+    /// Handle a recognized gesture during calibration.
+    /// Returns true if it was a valid attempt for the current target gesture.
+    @discardableResult
+    public func handleRecognizedGesture(_ gesture: GestureType) -> Bool {
+        guard isCalibrating, let current = currentCalibrationGesture else { return false }
 
-        // Move to next gesture if this one has enough attempts
-        if let current = currentCalibrationGesture,
-           (calibrationResults[current]?.count ?? 0) >= attemptsPerGesture {
-            moveToNextCalibrationGesture()
+        if gesture == current {
+            // Correct gesture — finish recording and save sample
+            do {
+                let url = try sampleRecorder.finishRecording()
+                recordedSampleURLs.append(url)
+                Self.logger.info("Saved sample: \(url.lastPathComponent)")
+            } catch {
+                Self.logger.warning("Failed to save sample: \(error)")
+            }
+            calibrationResults[current, default: []].append(true)
+
+            // Check if this gesture has enough attempts
+            if (calibrationResults[current]?.count ?? 0) >= attemptsPerGesture {
+                moveToNextCalibrationGesture()
+            } else {
+                // More attempts needed — start new recording for same gesture
+                sampleRecorder.startRecording(for: current)
+            }
+            return true
+        } else {
+            // Wrong gesture — cancel the dirty recording and restart
+            sampleRecorder.cancelRecording()
+            calibrationResults[current, default: []].append(false)
+            Self.logger.info("Wrong gesture: expected \(current.rawValue), got \(gesture.rawValue)")
+
+            // Check if this gesture has enough attempts (including failures)
+            if (calibrationResults[current]?.count ?? 0) >= attemptsPerGesture {
+                moveToNextCalibrationGesture()
+            } else {
+                // Restart recording for same gesture
+                sampleRecorder.startRecording(for: current)
+            }
+            return false
         }
     }
 
     private func moveToNextCalibrationGesture() {
+        // Cancel any in-progress recording before switching
+        if sampleRecorder.isRecording {
+            sampleRecorder.cancelRecording()
+        }
+
         guard let current = currentCalibrationGesture,
               let currentIndex = GestureType.allCases.firstIndex(of: current) else {
             finishCalibration()
@@ -177,17 +239,22 @@ public final class OnboardingCoordinator {
         }
         let nextIndex = GestureType.allCases.index(after: currentIndex)
         if nextIndex < GestureType.allCases.endIndex {
-            currentCalibrationGesture = GestureType.allCases[nextIndex]
+            let next = GestureType.allCases[nextIndex]
+            currentCalibrationGesture = next
+            sampleRecorder.startRecording(for: next)
         } else {
             finishCalibration()
         }
     }
 
-    /// End calibration.
+    /// End calibration. Cancels any in-progress recording.
     public func finishCalibration() {
+        if sampleRecorder.isRecording {
+            sampleRecorder.cancelRecording()
+        }
         isCalibrating = false
         currentCalibrationGesture = nil
-        Self.logger.info("Calibration finished")
+        Self.logger.info("Calibration finished — \(self.recordedSampleURLs.count) samples recorded")
     }
 
     /// Whether all gestures have at least one successful attempt.
@@ -207,6 +274,13 @@ public final class OnboardingCoordinator {
         calibrationResults[gesture]?.filter { $0 }.count ?? 0
     }
 
+    // MARK: - Frame Recording (exposed for testing and AppCoordinator integration)
+
+    /// Forward a frame to the sample recorder. Called by AppCoordinator's handleFrame.
+    public func feedFrameToRecorder(_ frame: TouchFrame) {
+        sampleRecorder.recordFrame(frame)
+    }
+
     // MARK: - Completion
 
     /// Save config with selected preset and mark onboarding complete.
@@ -217,7 +291,12 @@ public final class OnboardingCoordinator {
         }
 
         configStore.update { config in
-            config.gestures = preset.gestures
+            // Only overwrite gestures if user selected a non-empty preset
+            // or explicitly chose custom (empty). Preserves existing mappings
+            // when a returning user re-runs the wizard without changing preset.
+            if !preset.gestures.isEmpty || config.gestures.isEmpty {
+                config.gestures = preset.gestures
+            }
             config.hasCompletedOnboarding = true
         }
 

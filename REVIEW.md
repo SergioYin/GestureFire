@@ -111,3 +111,115 @@ Phase 1 provides a solid foundation for Phase 1.5 (onboarding + calibration + sa
 - `SensitivityConfig` has all 10 parameters with defaults
 - `RecognitionLoop` actor can be fed frames from either live OMS or recorded samples
 - Diagnostic infrastructure ready for onboarding permission flow
+
+---
+
+# Phase 1.5 Review — Onboarding + Calibration + Sample Library
+
+## Scope
+
+Phase 1.5 delivered the first-run onboarding wizard, sample recording pipeline, sample replay infrastructure, and calibration flow with gesture verification.
+
+## Stats
+
+| Metric | Value |
+|--------|-------|
+| Commits | 4 (foundation + samples + coordinator + UI) + pending fixes |
+| Source files | 34 (.swift) |
+| Test files | 21 (.swift) |
+| Source LOC | ~3,600 |
+| Test LOC | ~2,250 |
+| New types | `OnboardingCoordinator`, `SampleRecorder`, `SamplePlayer`, `GesturePreset`, `GestureSample`, `OnboardingWindowController` |
+
+## What Was Delivered
+
+### Onboarding Wizard (4 steps)
+1. **Permission**: Accessibility permission request → polling → auto-detect grant → "Try Again" recovery from denial (30s timeout)
+2. **Preset**: Card-based selection from 3 presets (Browser, IDE, Window Manager) with mapping preview
+3. **Practice**: Calibration with 3 attempts per gesture, correct/wrong validation, shortcut suppression, sample recording per attempt
+4. **Confirm**: Summary of selected preset + calibration results → "Start GestureFire" button
+
+### Window Management (macOS-specific complexity)
+- `OnboardingWindowController` using `NSWindow` (not NSPanel — panels auto-minimize on focus loss)
+- Auto-open on first launch via `AppDelegate.applicationDidFinishLaunching`
+- Reopenable from Menu Bar via `showDeferred()` (200ms delay for menu dismiss animation)
+- `applicationDidBecomeActive` brings wizard to front after System Settings steals focus
+- `NSApp.setActivationPolicy(.regular)` permanently — agent apps hide windows on deactivation
+
+### Sample Recording Pipeline
+- `SampleRecorder`: records `TouchFrame` sequences during calibration, saves as `.gesturesample` JSON
+- Wired into calibration lifecycle: `startRecording(for:)` at gesture start, `finishRecording()` on success, `cancelRecording()` on failure/skip
+- Files saved to `~/.config/gesturefire/samples/` with UUID suffix for uniqueness
+- `SamplePlayer` + `RecognitionLoop.replay()` for deterministic playback
+
+### Engine Safety During Calibration
+- `isCalibrating` check suppresses `KeyboardSimulator.fire()` during practice (prevents Cmd+W closing windows)
+- `.running`/`.starting` guard prevents duplicate `OMSTouchSource` creation on repeated `start()` calls
+- `gestureCount` watcher (not `lastGesture`) enables detecting consecutive same-gesture recognition
+
+### Returning User UX
+- `beginOnboarding()` loads existing config: matches known presets or creates ad-hoc "Custom" preset
+- Skips permission step if `AXIsProcessTrusted()` already granted
+
+## Bugs Found and Fixed
+
+### P0: Setup Wizard window lifecycle (5 iterations)
+
+The most complex issue in Phase 1.5. Menu-bar-only macOS apps have severe window management limitations.
+
+| Attempt | Approach | Failure |
+|---------|----------|---------|
+| 1 | SwiftUI `Window` scene | Never opens — SwiftUI doesn't auto-present Window scenes in menu-bar apps |
+| 2 | `NSApp.delegate as? AppDelegate` | Cast returns nil — SwiftUI wraps the delegate adapter |
+| 3 | `DispatchQueue.main.asyncAfter` | Closure not `@MainActor`-isolated in Swift 6 |
+| 4 | `NSPanel` + agent activation policy | Panel auto-minimizes when app loses focus |
+| 5 | `NSWindow` + `.regular` activation policy + `applicationDidBecomeActive` | Works |
+
+**Lesson**: macOS menu-bar apps need imperative window management (`NSWindow`), not declarative SwiftUI `Window` scenes. Agent apps (`.accessory` activation policy) cannot reliably keep windows visible.
+
+### P0: Shortcuts firing during practice
+Cmd+W / Cmd+T during calibration closed windows. Fixed by checking `isCalibrating` before `KeyboardSimulator.fire()`.
+
+### P0: Duplicate engine start
+`startCalibration()` → `startEngine()` → `start()` on already-running engine created duplicate `OMSTouchSource`. Fixed by adding state guard.
+
+### P1: Same gesture not detected consecutively
+`.onChange(of: appCoordinator.lastGesture)` doesn't fire when the same gesture is recognized twice. Fixed by watching `gestureCount` instead.
+
+### P1: Wrong gesture accepted as calibration success
+`recordCalibrationAttempt` didn't validate gesture type. Replaced with `handleRecognizedGesture(_:)` that checks `gesture == currentCalibrationGesture`.
+
+### P1: Permission stuck in "Waiting" after denial
+Polling never reset state. Fixed with 30s timeout + `resetPermissionState()` + "Try Again" button.
+
+## Known Issues
+
+### Two-finger swipe misrecognized as TipTap
+**Status**: Solution designed, not yet implemented.
+**Root cause**: `TipTapRecognizer` doesn't check distance between hold and tap positions. Two-finger swipe with sequential lift triggers false TipTap.
+**Fix**: Add `fingerProximityThreshold` distance check (1 line + tests). Parameter already exists in `SensitivityConfig`.
+
+### `directionAngleTolerance` not wired
+Carried over from Phase 1. `computeDirection()` uses simple `abs(dx) > abs(dy)` without angle tolerance. Deferred to Phase 3.
+
+### Gesture animation previews not implemented
+Planned in Phase 1.5 spec but deprioritized. Not required for usability — text instructions sufficient.
+
+### Auto sensitivity calculation not implemented
+Calibration validates gestures but doesn't auto-compute optimal sensitivity parameters. Deferred to Phase 4 (smart tuning).
+
+### Swift Testing unavailable in CLI toolchain
+`swift test` fails with `no such module 'Testing'` on Swift 6.3 CLI-only toolchain (no Xcode). Tests require Xcode's Swift Testing framework. Pre-existing environment issue, not a code problem.
+
+## What Went Well
+
+- **Iterative window management**: Despite 5 iterations, each step taught something about macOS window behavior. Final solution is robust.
+- **Sample recording pipeline**: Clean integration — recorder wired into calibration lifecycle without leaking into recognition logic.
+- **Returning user flow**: Config-based preset matching makes re-running the wizard seamless.
+- **Shortcut suppression**: Clean separation of calibration vs production mode.
+
+## What Needs Improvement
+
+- **Build/test discipline**: Mid-phase, changes accumulated without building or testing. Must always verify after every significant change.
+- **macOS window management expertise**: Too much trial-and-error. Should research NSWindow/NSPanel/activation policy behavior upfront before coding.
+- **Test environment**: Need Xcode installed or a workaround for Swift Testing in CLI-only environments.

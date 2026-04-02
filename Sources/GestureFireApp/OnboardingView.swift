@@ -7,7 +7,8 @@ import SwiftUI
 struct OnboardingView: View {
     let coordinator: OnboardingCoordinator
     let appCoordinator: AppCoordinator
-    @Environment(\.dismiss) private var dismiss
+    /// Closure to close the hosting window (NSWindow or SwiftUI dismiss).
+    var onDismiss: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -36,7 +37,7 @@ struct OnboardingView: View {
             Divider()
 
             // Navigation buttons
-            NavigationBar(coordinator: coordinator, appCoordinator: appCoordinator, dismiss: dismiss)
+            NavigationBar(coordinator: coordinator, appCoordinator: appCoordinator, onDismiss: onDismiss)
                 .padding()
         }
         .frame(minWidth: 560, minHeight: 420)
@@ -102,6 +103,12 @@ private struct PermissionStepView: View {
                 }
                 .controlSize(.large)
 
+                if coordinator.permissionState == .denied {
+                    Text("Permission was denied. Click above to try again.")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+
             case .requested:
                 VStack(spacing: 8) {
                     ProgressView()
@@ -111,6 +118,12 @@ private struct PermissionStepView: View {
                     Text("Open System Settings → Privacy & Security → Accessibility")
                         .font(.caption2)
                         .foregroundColor(.secondary)
+
+                    Button("Denied? Try Again") {
+                        coordinator.resetPermissionState()
+                    }
+                    .font(.caption)
+                    .padding(.top, 4)
                 }
 
             case .granted:
@@ -206,6 +219,8 @@ private struct PresetCard: View {
 private struct PracticeStepView: View {
     let coordinator: OnboardingCoordinator
     let appCoordinator: AppCoordinator
+    /// Snapshot of gestureCount to detect new recognitions (including same gesture twice).
+    @State private var lastSeenGestureCount = 0
 
     var body: some View {
         VStack(spacing: 20) {
@@ -218,6 +233,7 @@ private struct PracticeStepView: View {
                 .frame(maxWidth: 400)
 
             if coordinator.isCalibrating {
+                // Fixed-height calibration grid to prevent UI jumping
                 VStack(spacing: 12) {
                     ForEach(GestureType.allCases, id: \.self) { gesture in
                         CalibrationRow(
@@ -228,23 +244,21 @@ private struct PracticeStepView: View {
                         )
                     }
                 }
+                .fixedSize(horizontal: false, vertical: true)
 
                 if let current = coordinator.currentCalibrationGesture {
                     Text("Try: \(current.displayName)")
                         .font(.headline)
                         .padding(.top, 8)
-                }
-
-                // Listen for recognized gestures
-                if let lastGesture = appCoordinator.lastGesture,
-                   coordinator.currentCalibrationGesture == lastGesture {
-                    Color.clear
-                        .onAppear {
-                            coordinator.recordCalibrationAttempt(gesture: lastGesture, success: true)
-                        }
+                } else {
+                    // Placeholder to keep layout stable when no current gesture
+                    Text(" ")
+                        .font(.headline)
+                        .padding(.top, 8)
                 }
             } else {
                 Button("Start Practice") {
+                    lastSeenGestureCount = appCoordinator.gestureCount
                     coordinator.startCalibration()
                 }
                 .controlSize(.large)
@@ -254,6 +268,21 @@ private struct PracticeStepView: View {
                 Label("All gestures verified!", systemImage: "checkmark.circle.fill")
                     .foregroundColor(.green)
             }
+
+            if !coordinator.recordedSampleURLs.isEmpty {
+                Text("\(coordinator.recordedSampleURLs.count) sample(s) recorded")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        // Detect ANY new gesture recognition by watching gestureCount changes.
+        // This works for consecutive same gestures (lastGesture doesn't change but count does).
+        .onChange(of: appCoordinator.gestureCount) { _, newCount in
+            guard coordinator.isCalibrating,
+                  newCount > lastSeenGestureCount,
+                  let recognized = appCoordinator.lastGesture else { return }
+            lastSeenGestureCount = newCount
+            coordinator.handleRecognizedGesture(recognized)
         }
     }
 }
@@ -346,7 +375,7 @@ private struct ConfirmStepView: View {
 private struct NavigationBar: View {
     let coordinator: OnboardingCoordinator
     let appCoordinator: AppCoordinator
-    let dismiss: DismissAction
+    var onDismiss: (() -> Void)?
 
     var body: some View {
         HStack {
@@ -388,8 +417,12 @@ private struct NavigationBar: View {
                 Button("Start GestureFire") {
                     coordinator.complete()
                     appCoordinator.finishOnboarding()
-                    appCoordinator.start()
-                    dismiss()
+                    // If engine is already running (started during practice), keep it.
+                    // Only start if not already operational.
+                    if !appCoordinator.engineState.isOperational {
+                        appCoordinator.start()
+                    }
+                    onDismiss?()
                 }
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)

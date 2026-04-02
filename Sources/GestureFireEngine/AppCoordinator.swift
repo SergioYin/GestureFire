@@ -52,6 +52,10 @@ public final class AppCoordinator {
     // MARK: - Start / Stop
 
     public func start() {
+        // Guard: don't restart if already running or starting
+        if case .running = engineState { return }
+        if case .starting = engineState { return }
+
         hasPromptedThisCycle = false
 
         // Pure read — no system dialog
@@ -155,11 +159,39 @@ public final class AppCoordinator {
     public func beginOnboarding() {
         let recorder = SampleRecorder(sensitivity: configStore.config.sensitivity)
         self.sampleRecorder = recorder
-        self.onboardingCoordinator = OnboardingCoordinator(
+        let coordinator = OnboardingCoordinator(
             configStore: configStore,
             sampleRecorder: recorder,
             engineDelegate: self
         )
+
+        // For returning users: load existing config state
+        let config = configStore.config
+        if config.hasCompletedOnboarding {
+            // Match existing gestures to a known preset, or use custom
+            let existingGestures = config.gestures
+            if let matched = GesturePreset.allPresets.first(where: {
+                !$0.gestures.isEmpty && $0.gestures == existingGestures
+            }) {
+                coordinator.selectPreset(matched)
+            } else if !existingGestures.isEmpty {
+                // Custom mappings — create an ad-hoc preset reflecting current config
+                coordinator.selectPreset(GesturePreset(
+                    id: "custom",
+                    displayName: "Custom",
+                    description: "Your current mappings",
+                    icon: "slider.horizontal.3",
+                    gestures: existingGestures
+                ))
+            }
+
+            // Skip permission step if already granted
+            if AXIsProcessTrusted() {
+                coordinator.goToStep(.preset)
+            }
+        }
+
+        self.onboardingCoordinator = coordinator
         Logger.engine.info("Onboarding started")
     }
 
@@ -228,8 +260,8 @@ public final class AppCoordinator {
     // MARK: - Private — Frame handling
 
     private func handleFrame(_ frame: TouchFrame) async {
-        // Feed frame to sample recorder if active
-        sampleRecorder?.recordFrame(frame)
+        // Feed frame to sample recorder via onboarding coordinator if active
+        onboardingCoordinator?.feedFrameToRecorder(frame)
 
         // Transition from .starting → .running on first frame
         if case .starting = engineState {
@@ -270,9 +302,13 @@ public final class AppCoordinator {
         gestureCount += 1
         lastGesture = gesture
 
+        // During calibration, only record the gesture — don't fire shortcuts.
+        // Firing shortcuts (e.g. Cmd+W) during practice would close windows.
+        let isCalibrating = onboardingCoordinator?.isCalibrating == true
+
         let shortcut = configStore.config.shortcut(for: gesture)
 
-        if let shortcut {
+        if let shortcut, !isCalibrating {
             // Fire keyboard shortcut
             let success = KeyboardSimulator.fire(shortcut)
             if success {
@@ -281,6 +317,9 @@ public final class AppCoordinator {
                 recordEvent(.shortcutFailed(gesture: gesture, shortcut: shortcut.stringValue, timestamp: Date()))
             }
             Logger.recognition.info("Recognized: \(gesture.rawValue) → \(shortcut.stringValue) (fired: \(success))")
+        } else if isCalibrating {
+            recordEvent(.recognized(gesture: gesture, timestamp: Date()))
+            Logger.recognition.info("Recognized (calibration): \(gesture.rawValue) — shortcut suppressed")
         } else {
             recordEvent(.unmapped(gesture: gesture, timestamp: Date()))
             Logger.recognition.info("Recognized: \(gesture.rawValue) → (unmapped)")
