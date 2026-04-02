@@ -24,17 +24,20 @@ final class StatusPanelController {
         dismissTask?.cancel()
 
         let panel = getOrCreatePanel()
-        panel.contentView = NSHostingView(rootView: StatusPanelView(event: event))
 
-        // Position near top-right of main screen
-        if let screen = NSScreen.main {
+        // Update content without triggering window recreation
+        let hostingView = NSHostingView(rootView: StatusPanelView(event: event))
+        panel.contentView = hostingView
+
+        // Position near top-right of main screen (only reposition if not already visible)
+        if !panel.isVisible, let screen = NSScreen.main {
             let screenFrame = screen.visibleFrame
             let panelSize = CGSize(width: 280, height: 60)
             let origin = CGPoint(
                 x: screenFrame.maxX - panelSize.width - 16,
                 y: screenFrame.maxY - panelSize.height - 8
             )
-            panel.setFrame(NSRect(origin: origin, size: panelSize), display: true)
+            panel.setFrame(NSRect(origin: origin, size: panelSize), display: false)
         }
 
         panel.orderFrontRegardless()
@@ -77,6 +80,9 @@ final class StatusPanelController {
         p.hidesOnDeactivate = false
         p.titleVisibility = .hidden
         p.titlebarAppearsTransparent = true
+        // Suppress window appearance animation and any associated system sound effects.
+        // macOS may play UI sound effects for windows with default animationBehavior.
+        p.animationBehavior = .none
 
         self.panel = p
         return p
