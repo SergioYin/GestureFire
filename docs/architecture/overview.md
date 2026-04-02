@@ -53,7 +53,11 @@ Trackpad → OMS → OMSTouchSource (actor)
          (CGEvent post)
               │
               ▼
-       PipelineEvent → UI
+       PipelineEvent
+              │
+              ├──► SoundFeedback.play()     (if soundEnabled)
+              ├──► StatusPanelController     (if statusPanelEnabled)
+              └──► UI (recentEvents, lastPipelineEvent)
 ```
 
 ## Target Responsibilities
@@ -65,13 +69,14 @@ Trackpad → OMS → OMSTouchSource (actor)
 | **GestureFireIntegration** | OMS bridge | `OMSTouchSource` (actor), `TouchFrameAdapter` |
 | **GestureFireShortcuts** | Keyboard simulation | `KeyboardSimulator`, `KeyCodeMap` |
 | **GestureFireConfig** | Persistence + migration | `ConfigStore` (`@Observable`), `ConfigPersistence`, `ConfigMigration` |
-| **GestureFireEngine** | Orchestration + onboarding | `AppCoordinator` (`@Observable`, `@MainActor`), `OnboardingCoordinator`, `SampleRecorder`, `SamplePlayer`, `DiagnosticRunner`, `FileLogger` |
-| **GestureFireApp** | SwiftUI UI + onboarding wizard | `MenuBarView`, `SettingsView`, `DiagnosticView`, `OnboardingView`, `OnboardingWindowController` |
+| **GestureFireEngine** | Orchestration + onboarding + feedback | `AppCoordinator` (`@Observable`, `@MainActor`), `OnboardingCoordinator`, `SampleRecorder`, `SamplePlayer`, `DiagnosticRunner`, `FileLogger`, `SoundFeedback`, `LaunchAtLoginManager` |
+| **GestureFireApp** | SwiftUI UI + onboarding wizard + settings | `MenuBarView`, `SettingsView`, `GeneralSettingsView`, `LogViewerView`, `DiagnosticView`, `OnboardingView`, `OnboardingWindowController`, `StatusPanelController`, `StatusPanelView` |
 
 ## Concurrency Model
 
 ```
-@MainActor:  AppCoordinator, ConfigStore, all SwiftUI views
+@MainActor:  AppCoordinator, ConfigStore, SoundFeedback, StatusPanelController,
+             StatusPanelViewModel, all SwiftUI views
 actor:       RecognitionLoop, OMSTouchSource
 Sendable:    all types in GestureFireTypes (value types)
              KeyboardSimulator, FileLogger (structs, no mutable state)
@@ -144,18 +149,18 @@ Sources/
 ├── GestureFireIntegration/ # 2 files — OMS bridge
 ├── GestureFireShortcuts/   # 2 files — CGEvent keyboard
 ├── GestureFireConfig/      # 4 files — persistence + presets
-├── GestureFireEngine/      # 7 files — orchestration + onboarding + samples
-└── GestureFireApp/         # 5 files — SwiftUI UI + onboarding wizard
+├── GestureFireEngine/      # 9 files — orchestration + onboarding + samples + feedback
+└── GestureFireApp/         # 9 files — SwiftUI UI + onboarding wizard + settings + status panel
 
 Tests/
 ├── GestureFireTypesTests/       # 7 files
 ├── GestureFireRecognitionTests/ # 4 files
 ├── GestureFireShortcutsTests/   # 1 file
 ├── GestureFireConfigTests/      # 3 files
-└── GestureFireEngineTests/      # 6 files
+└── GestureFireEngineTests/      # 9 files
 ```
 
-Total: 34 source files, 21 test files (~3,600 source LOC, ~2,250 test LOC).
+Total: 40 source files, 24 test files (~4,206 source LOC, ~2,549 test LOC).
 
 ## Cross-Phase Infrastructure
 
@@ -163,10 +168,14 @@ These components serve roles beyond their originating phase:
 
 | Component | Created In | Role in Future Phases |
 |-----------|-----------|----------------------|
-| `SampleRecorder` / `SamplePlayer` | Phase 1.5 | Phase 2: sample browser UI. Phase 4: regression testing, auto-calibration input. |
+| `SampleRecorder` / `SamplePlayer` | Phase 1.5 | Phase 4: sample browser UI, regression testing, auto-calibration input. |
 | `RecognitionLoop.replay()` | Phase 1.5 | Phase 3: validate new recognizers against existing samples. Phase 4: parameter search via replay. |
-| `DiagnosticRunner` | Phase 1 | Phase 2+: extensible via `DiagnosticChecking` protocol for new diagnostic checks. |
+| `DiagnosticRunner` | Phase 1 | Extensible via `DiagnosticChecking` protocol for new diagnostic checks. |
 | `.gesturesample` files | Phase 1.5 | Long-lived assets. Format changes must be backward-compatible or include migration. |
 | `OnboardingCoordinator` | Phase 1.5 | Phase 3: may need new steps for expanded gesture types. |
+| `SoundFeedback` | Phase 2 | Stable. May gain sound selection UI in Phase 5 (personalization). |
+| `StatusPanelController` / `StatusPanelViewModel` | Phase 2 | Phase 3: will show new gesture types. View model pattern supports content updates without window server operations. |
+| `FileLogger.readEntries(for:)` | Phase 2 | Phase 4: data source for tuning analytics dashboard. |
+| `LaunchAtLoginManager` | Phase 2 | Stable. No expected changes unless macOS API changes. |
 
 Process documentation for all phases: `docs/process/`.

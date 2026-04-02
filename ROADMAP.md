@@ -1,7 +1,7 @@
 # GestureFire v1 Roadmap
 
 > Canonical phase plan. Supersedes all earlier planning discussions.
-> Updated: 2026-04-02
+> Updated: 2026-04-03
 
 ## Phase Summary
 
@@ -56,7 +56,7 @@
 
 **Goal:** Daily-driver comfort — audio/visual feedback, system integration.
 
-**Delivered:** Sound feedback (NSSound, configurable), floating status panel (non-activating NSPanel), log viewer with JSONL parsing + filtering, launch-at-login (SMAppService), General settings tab, sample save failure feedback in onboarding, menu bar tooltip polish.
+**Delivered:** Sound feedback (NSSound, configurable), floating status panel (non-activating NSPanel, view-model-driven), log viewer with JSONL parsing + filtering, launch-at-login (SMAppService), General settings tab, sample save failure feedback in onboarding, menu bar title status display.
 
 **See:** `REVIEW.md` Phase 2 section for full retrospective.
 
@@ -75,6 +75,20 @@
 - `CornerTapRecognizer` — tap in trackpad corners
 - UI: new sections in Settings for each gesture type
 - Sensitivity UI exposes Phase 2+ parameters (`fingerProximityThreshold`, `swipeMinDistance`, `swipeMaxDurationMs`, `cornerRegionSize`)
+
+### Carry-Over from Phase 2
+
+| Item | Priority | Notes |
+|------|----------|-------|
+| `directionAngleTolerance` not wired | P1 | Wire into `TipTapRecognizer.computeDirection()` when adding swipe recognizers with angular thresholds |
+| Gesture animation previews | P2 | More valuable with expanded gesture vocabulary |
+| `FileLogger` thread safety | P2 | Evaluate when recognizers may log from background |
+| `FileLogger.log()` force-unwrap | P3 | Fix alongside FileLogger refactoring |
+| `AppCoordinator.stop()` race | P2 | Multi-recognizer architecture amplifies the issue |
+| SwiftUI view unit tests | P3 | Consider snapshot testing for gesture-specific UI |
+| LogEntry stable identity (UUID) | P3 | Fix when expanding log viewer |
+| `InMemoryPersistence.Storage @unchecked Sendable` | P3 | Convert to `@MainActor`-constrained class |
+| NSPanel sound (if still present) | P0 | Verify on Phase 3 kickoff — if still audible, escalate |
 
 ### Verification Criteria
 
@@ -97,6 +111,13 @@
 - `FeedbackCorrelator` — match manual shortcut press within 3s of rejection → "false negative"
 - `FeedbackAccumulator` — after 5 correlated false negatives for same gesture, auto-adjust relevant parameter (with safety bounds + 24h cooldown)
 - Dashboard showing tuning history and parameter drift
+
+### Carry-Over from Earlier Phases
+
+| Item | Source | Notes |
+|------|--------|-------|
+| Sample browser / management UI | Phase 1.5 | Build alongside auto-calibration — browse, delete, export `.gesturesample` files |
+| `GestureFireConfig.version` migration | Phase 2 | Activate if Phase 4 schema changes require explicit migration |
 
 ### Verification Criteria
 

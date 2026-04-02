@@ -49,8 +49,8 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 
 ## Manual Checks — Menu Bar
 
-- [ ] Menu bar icon tooltip shows engine state (e.g., "GestureFire (Running · 5)")
-- [ ] Gesture count in tooltip updates as gestures are recognized
+- [ ] Menu bar title displays engine state and gesture count (e.g., "GestureFire (Running · 5)")
+- [ ] Gesture count in menu bar title updates live as gestures are recognized
 
 ## Manual Checks — Sample Save Failure
 

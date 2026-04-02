@@ -12,7 +12,7 @@ Make GestureFire comfortable as a daily-driver: audio/visual feedback on gesture
   - Rationale: The panel is positive reinforcement ("your gesture worked"), not a diagnostic console. Diagnostic events belong in the log viewer.
 - [ ] **Log viewer**: New tab in SettingsView. Reads FileLogger JSONL, displays today's entries by default, filterable by gesture type. Date picker for history. **Must handle corrupt/malformed JSONL lines gracefully** — skip bad lines, never crash.
 - [ ] **Launch-at-login**: Toggle in Settings using `SMAppService`. Persist preference in `GestureFireConfig`.
-- [ ] **Menu bar tooltip polish**: Show engine status + gesture count in menu bar tooltip. Improve status display in menu dropdown.
+- [ ] **Menu bar title polish**: Show engine status + gesture count in the MenuBarExtra title string (e.g., "GestureFire (Running · 5)"). This is the always-visible menu bar label, not a hover tooltip.
 - [ ] **Sample save failure feedback**: Surface `SampleRecorder.finishRecording()` errors in onboarding Practice step as an inline error message, instead of only writing to logger. User must see that a sample failed to save.
 
 ## Out of Scope
@@ -36,7 +36,7 @@ Make GestureFire comfortable as a daily-driver: audio/visual feedback on gesture
 | `LaunchAtLoginManager.swift` | `GestureFireEngine` | New — `SMAppService` wrapper |
 | `AppCoordinator.swift` | `GestureFireEngine` | Modified — wire sound feedback + status panel events |
 | `SettingsView.swift` | `GestureFireApp` | Modified — add Log Viewer tab + launch-at-login toggle |
-| `MenuBarView.swift` | `GestureFireApp` | Modified — tooltip, status polish |
+| `MenuBarView.swift` | `GestureFireApp` | Modified — menu bar title, status polish |
 | `GestureFireConfig.swift` | `GestureFireTypes` | Modified — add `soundEnabled`, `soundVolume`, `launchAtLogin` fields |
 | `FileLogger.swift` | `GestureFireEngine` | Modified — expose `readEntries(for:)` if not already public, per-line corrupt JSONL resilience |
 | `OnboardingView.swift` | `GestureFireApp` | Modified — inline error message when sample save fails |
@@ -85,7 +85,7 @@ Make GestureFire comfortable as a daily-driver: audio/visual feedback on gesture
 - [ ] Open Settings → Logs tab → see today's entries, filter by gesture type, pick a past date
 - [ ] Log viewer: manually corrupt a line in a `.jsonl` file → log viewer still loads, skips bad line, does not crash
 - [ ] Toggle launch-at-login in Settings → log out and log in → GestureFire auto-starts (or doesn't, based on toggle)
-- [ ] Menu bar tooltip shows engine state + count
+- [ ] Menu bar title shows engine state + count (e.g., "GestureFire (Running · 5)")
 - [ ] During onboarding Practice: make `~/.config/gesturefire/samples/` read-only → perform gesture → user sees inline error message in wizard that sample save failed
 
 ## Risks

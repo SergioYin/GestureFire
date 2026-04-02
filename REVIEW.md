@@ -232,10 +232,11 @@ If these two use cases ever need different thresholds, split into separate param
 - Export samples for bug reports or regression testing
 - View sample metadata (gesture type, timestamp, frame count)
 
-Target: **Phase 2** (sample browser UI) and **Phase 4** (regression testing with sample replay).
+Target: **Phase 4** — sample browser UI needed alongside auto-calibration workflow.
 
 ### Gesture animation previews not implemented
-Planned in Phase 1.5 spec but deprioritized. Text instructions sufficient for now. Target: **Phase 2**.
+Planned in Phase 1.5 spec but deprioritized. Text instructions sufficient for now.
+Target: **Phase 3** — more valuable when expanded gesture vocabulary needs visual explanation.
 
 ### Auto sensitivity calculation not implemented
 Practice step captures samples but does not analyze them to compute optimal parameters. True sample-based calibration (replay + parameter search) belongs to **Phase 4 (Smart Tuning)**.
@@ -268,12 +269,12 @@ Phase 2 delivered daily-driver comfort: sound feedback, floating status panel, l
 
 | Metric | Value |
 |--------|-------|
-| Commits | 6 (spec + 4 features + hardening) |
+| Commits | 9 (spec + 4 features + hardening + 2 sound fixes + close-out) |
 | Source files | 40 (.swift), +6 new |
 | Test files | 24 (.swift), +3 new |
-| Source LOC | ~4,163 (+563) |
+| Source LOC | ~4,206 (+606) |
 | Test LOC | ~2,549 (+299) |
-| New types | `SoundFeedback`, `StatusPanelController`, `StatusPanelView`, `LogViewerView`, `LogEntryRow`, `GeneralSettingsView`, `LaunchAtLoginManager`, `PipelineEvent.SemanticColor` |
+| New types | `SoundFeedback`, `StatusPanelController`, `StatusPanelViewModel`, `StatusPanelView`, `LogViewerView`, `LogEntryRow`, `GeneralSettingsView`, `LaunchAtLoginManager`, `PipelineEvent.SemanticColor` |
 | Tests | 153 in 30 suites (was 135 in 27) |
 
 ## What Was Delivered
@@ -331,6 +332,12 @@ Phase 2 delivered daily-driver comfort: sound feedback, floating status panel, l
 ### H4: Status panel shown during calibration (code review)
 `.recognized` events during calibration triggered status panel with misleading "No shortcut mapped" subtitle. Fixed: suppress `onStatusEvent` and `soundFeedback.play()` during calibration.
 
+### P1: NSPanel system sound on status panel appearance (user report)
+macOS plays system UI sound effects for windows with default `animationBehavior`. Status panel produced an audible click even with Sound Feedback OFF. Fixed: `panel.animationBehavior = .none`.
+
+### P1: NSPanel content replacement triggers window server sounds (user report)
+After fixing `animationBehavior`, a residual sound persisted. Root cause: `show(event:)` replaced `panel.contentView` with a new `NSHostingView` on every gesture event, and called `orderFrontRegardless()` repeatedly — both trigger macOS window server operations that produce sounds. Fixed: refactored to `@Observable` `StatusPanelViewModel` + single `NSHostingView` created once. Content updates flow through the view model. `orderFrontRegardless()` called only on hidden→visible transition; subsequent shows use `alphaValue`.
+
 ### M1: LogViewerView synchronous file I/O on main thread (code review)
 `isLoading` was set and cleared synchronously — spinner never rendered. Fixed: wrapped in `Task`.
 
@@ -338,19 +345,19 @@ Phase 2 delivered daily-driver comfort: sound feedback, floating status panel, l
 
 ### `FileLogger` is a `Sendable` struct with non-atomic write path
 **Status**: Currently safe because `log()` is only called from `@MainActor`. If `FileLogger` is ever used from background tasks, it needs actor isolation or a serial queue.
-**Target**: Phase 3 (if FileLogger usage expands) or Phase 4 (smart tuning may log from background)
+**Target**: Phase 3 — evaluate when adding recognizers that may log from background contexts.
 
 ### `AppCoordinator.stop()` fire-and-forget Task for source.stop()
 **Status**: The unstructured `Task { await source.stop() }` can outlive the coordinator. If `start()` is called immediately after `stop()`, two sources may coexist briefly. Mitigated by `.running`/`.starting` guard, but not fully safe.
-**Target**: Phase 3 (when multiple recognizer sources may amplify the issue)
+**Target**: Phase 3 — address when multi-recognizer architecture may amplify the race condition.
 
 ### `GestureFireConfig.version` field is inert
 **Status**: Decoded but never used for migration logic. All new fields use `decodeIfPresent` with defaults, so backward compatibility is maintained without migrations. The field exists as a reserved hook.
-**Target**: Phase 4 or Phase 5 (when schema changes may require migration)
+**Target**: Phase 5 — activate when per-app profiles introduce schema changes requiring explicit migration.
 
 ### `FileLogger.log()` force-unwrap on String encoding
 **Status**: `String(data: data, encoding: .utf8)!` — safe because JSONEncoder always produces valid UTF-8, but violates Swift convention against force-unwraps in production code.
-**Target**: Phase 3 (low priority)
+**Target**: Phase 3 — low priority, fix alongside any FileLogger refactoring.
 
 ### Sample browser / management UI
 **Status**: Re-deferred from Phase 1.5. `.gesturesample` files accumulate without management UI.
@@ -373,6 +380,7 @@ Phase 2 delivered daily-driver comfort: sound feedback, floating status panel, l
 
 ## What Needs Improvement
 
-- **Test coverage for UI components**: `StatusPanelView`, `LogViewerView`, `GeneralSettingsView` have no unit tests (SwiftUI views are hard to test without ViewInspector or similar). Consider snapshot testing in Phase 3.
-- **LogEntry lacks stable identity**: Uses array index as List key — fragile for animations. Should add UUID field.
-- **`InMemoryPersistence.Storage` uses `@unchecked Sendable`** in tests — should be converted to `@MainActor`-constrained class.
+- **Test coverage for UI components**: `StatusPanelView`, `LogViewerView`, `GeneralSettingsView` have no unit tests (SwiftUI views are hard to test without ViewInspector or similar). **Target: Phase 3** — consider snapshot testing when adding more gesture-specific UI.
+- **LogEntry lacks stable identity**: Uses array index as List key — fragile for animations. Should add UUID field. **Target: Phase 3** — fix when expanding log viewer for multi-recognizer events.
+- **`InMemoryPersistence.Storage` uses `@unchecked Sendable`** in tests — should be converted to `@MainActor`-constrained class. **Target: Phase 3** — fix alongside test infrastructure improvements.
+- **NSPanel sound suppression unverified**: The view model refactor + `animationBehavior = .none` is the best-known fix, but user has not yet confirmed the sound is fully eliminated. If residual sound persists, deeper investigation needed (possibly `NSWindow.orderFrontRegardless` itself or macOS version-specific behavior). **Target: Phase 3 P0 if still present.**
