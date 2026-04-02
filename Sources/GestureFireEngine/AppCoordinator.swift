@@ -145,6 +145,11 @@ public final class AppCoordinator {
         hasEverReceivedFrame
     }
 
+    /// Read log entries for a specific date. Used by LogViewerView.
+    public func readLogEntries(for date: Date) throws -> [LogEntry] {
+        try fileLogger.readEntries(for: date)
+    }
+
     /// Update recognizer sensitivity from current config.
     public func reloadSensitivity() async {
         let sensitivity = configStore.config.sensitivity

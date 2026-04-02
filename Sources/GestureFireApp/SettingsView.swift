@@ -13,6 +13,9 @@ struct SettingsView: View {
 
             SensitivityView(coordinator: coordinator)
                 .tabItem { Label("Sensitivity", systemImage: "slider.horizontal.3") }
+
+            LogViewerView(coordinator: coordinator)
+                .tabItem { Label("Logs", systemImage: "clock") }
         }
         .padding()
     }
