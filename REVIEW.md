@@ -131,13 +131,28 @@ Phase 1.5 delivered the first-run onboarding wizard, sample recording pipeline, 
 | Test LOC | ~2,250 |
 | New types | `OnboardingCoordinator`, `SampleRecorder`, `SamplePlayer`, `GesturePreset`, `GestureSample`, `OnboardingWindowController` |
 
+## Naming Clarification: "Calibration" vs "Practice"
+
+The onboarding step labeled "Practice" (and internally named `startCalibration` / `isCalibrating`) is **not** true calibration in the signal-processing sense. What it actually does:
+
+- **Real-time gesture verification**: user performs gestures, recognizer validates against current sensitivity defaults
+- **Sample capture**: successful attempts are recorded as `.gesturesample` files for future use
+
+What it does **not** do:
+
+- Analyze captured samples to compute better sensitivity parameters
+- Compare multiple samples to find optimal thresholds
+- Auto-tune any `SensitivityConfig` values
+
+**True calibration** — using captured samples + replay to optimize parameters — belongs to **Phase 4 (Smart Tuning)**. The current "practice" step produces the raw material (samples) that Phase 4 will consume.
+
 ## What Was Delivered
 
 ### Onboarding Wizard (4 steps)
 1. **Permission**: Accessibility permission request → polling → auto-detect grant → "Try Again" recovery from denial (30s timeout)
 2. **Preset**: Card-based selection from 3 presets (Browser, IDE, Window Manager) with mapping preview
-3. **Practice**: Calibration with 3 attempts per gesture, correct/wrong validation, shortcut suppression, sample recording per attempt
-4. **Confirm**: Summary of selected preset + calibration results → "Start GestureFire" button
+3. **Practice**: Real-time gesture verification + sample recording (3 attempts per gesture, correct/wrong validation, shortcut suppression)
+4. **Confirm**: Summary of selected preset + practice results → "Start GestureFire" button
 
 ### Window Management (macOS-specific complexity)
 - `OnboardingWindowController` using `NSWindow` (not NSPanel — panels auto-minimize on focus loss)
@@ -192,24 +207,41 @@ Cmd+W / Cmd+T during calibration closed windows. Fixed by checking `isCalibratin
 ### P1: Permission stuck in "Waiting" after denial
 Polling never reset state. Fixed with 30s timeout + `resetPermissionState()` + "Try Again" button.
 
-## Known Issues
+## Known Issues and Carry-Over Items
 
-### Two-finger swipe misrecognized as TipTap
-**Status**: Solution designed, not yet implemented.
-**Root cause**: `TipTapRecognizer` doesn't check distance between hold and tap positions. Two-finger swipe with sequential lift triggers false TipTap.
-**Fix**: Add `fingerProximityThreshold` distance check (1 line + tests). Parameter already exists in `SensitivityConfig`.
+### Two-finger swipe misrecognized as TipTap — FIXED (6214b59)
+Added `fingerProximityThreshold` distance check in `TipTapRecognizer`. Two-finger swipe fingers (distance < 0.05) now rejected; real TipTaps (distance > 0.2) unaffected.
 
-### `directionAngleTolerance` not wired
-Carried over from Phase 1. `computeDirection()` uses simple `abs(dx) > abs(dy)` without angle tolerance. Deferred to Phase 3.
+### `fingerProximityThreshold` semantic note
+This parameter (default 0.15) is now **dual-purpose**:
+- **Original intent** (Phase 3): minimum distance between fingers in multi-finger gestures
+- **Current use** (Phase 1.5): anti-swipe filter in TipTap recognition
+
+If these two use cases ever need different thresholds, split into separate parameters (e.g. `tipTapMinFingerDistance` + `multiFingerProximityThreshold`). For now, 0.15 works well for both.
+
+### `directionAngleTolerance` NOT wired into recognizer
+**Carried from Phase 1. Still inactive.** The parameter exists in `SensitivityConfig`, is exposed in Settings UI, and persists to config — but `TipTapRecognizer.computeDirection()` uses a simple `abs(dx) > abs(dy)` check without applying it. **Do not treat as a tunable parameter** — changing its value has no effect. Target: **Phase 3** (when direction logic needs refinement for swipe gestures and diagonal handling).
+
+### Sample save failure not surfaced to user
+`SampleRecorder.finishRecording()` failures are logged (`Logger.warning`) but not shown in UI. The user sees the sample count but has no way to know if a specific save failed. Target: **Phase 2** (UX polish).
+
+### Sample library management not implemented
+`.gesturesample` files accumulate in `~/.config/gesturefire/samples/` but there is no UI to:
+- Browse existing samples
+- Delete bad/unwanted samples
+- Export samples for bug reports or regression testing
+- View sample metadata (gesture type, timestamp, frame count)
+
+Target: **Phase 2** (sample browser UI) and **Phase 4** (regression testing with sample replay).
 
 ### Gesture animation previews not implemented
-Planned in Phase 1.5 spec but deprioritized. Not required for usability — text instructions sufficient.
+Planned in Phase 1.5 spec but deprioritized. Text instructions sufficient for now. Target: **Phase 2**.
 
 ### Auto sensitivity calculation not implemented
-Calibration validates gestures but doesn't auto-compute optimal sensitivity parameters. Deferred to Phase 4 (smart tuning).
+Practice step captures samples but does not analyze them to compute optimal parameters. True sample-based calibration (replay + parameter search) belongs to **Phase 4 (Smart Tuning)**.
 
-### Swift Testing unavailable in CLI toolchain
-`swift test` fails with `no such module 'Testing'` on Swift 6.3 CLI-only toolchain (no Xcode). Tests require Xcode's Swift Testing framework. Pre-existing environment issue, not a code problem.
+### Swift Testing requires Xcode toolchain
+`swift test` fails with `no such module 'Testing'` when using Swift 6.3 CLI-only toolchain (CommandLineTools). Tests require Xcode's bundled Swift Testing framework. See `scripts/test.sh` for the recommended test command. Not a code issue.
 
 ## What Went Well
 

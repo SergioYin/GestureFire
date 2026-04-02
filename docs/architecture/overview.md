@@ -108,7 +108,26 @@ Recognizers receive time only via `frame.timestamp`. They never call `Date()`. T
 - Fine-grained view updates (only properties actually read trigger refresh)
 - `@ObservationIgnored` for internal-only properties
 
-### 5. Check vs Request Separation
+### 5. Parameter Semantics
+
+Not all `SensitivityConfig` parameters are active. Current status:
+
+| Parameter | Status | Used By |
+|-----------|--------|---------|
+| `holdThresholdMs` | Active | TipTapRecognizer |
+| `tapMaxDurationMs` | Active | TipTapRecognizer |
+| `movementTolerance` | Active | TipTapRecognizer |
+| `debounceCooldownMs` | Active | TipTapRecognizer |
+| `tapGroupingWindowMs` | Active | TipTapRecognizer |
+| `fingerProximityThreshold` | Active | TipTapRecognizer (anti-swipe filter) |
+| `directionAngleTolerance` | **NOT WIRED** | None — `computeDirection()` ignores it. Phase 3. |
+| `swipeMinDistance` | Reserved | Phase 3 (swipe recognizers) |
+| `swipeMaxDurationMs` | Reserved | Phase 3 |
+| `cornerRegionSize` | Reserved | Phase 3 (corner tap recognizer) |
+
+**`fingerProximityThreshold`** is dual-purpose: originally reserved for multi-finger proximity (Phase 3), now also used as TipTap anti-swipe distance check. May need splitting if the two use cases diverge.
+
+### 6. Check vs Request Separation
 
 Accessibility permission has two distinct operations:
 - **Check**: `AXIsProcessTrusted()` — read-only, no UI, safe to poll
