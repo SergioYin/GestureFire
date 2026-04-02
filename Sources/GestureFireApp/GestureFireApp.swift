@@ -120,6 +120,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
 
         let coordinator = sharedCoordinator
+
+        // Wire status panel to show on recognition events
+        coordinator.onStatusEvent = { event in
+            guard coordinator.configStore.config.statusPanelEnabled else { return }
+            StatusPanelController.shared.show(event: event)
+        }
+
         guard coordinator.needsOnboarding else { return }
 
         coordinator.beginOnboarding()

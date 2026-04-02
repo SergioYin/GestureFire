@@ -34,11 +34,18 @@ public final class AppCoordinator {
     @ObservationIgnored private var permissionPollTask: Task<Void, Never>?
     @ObservationIgnored private var startingTimeoutTask: Task<Void, Never>?
 
+    /// Sound feedback — fire-and-forget on recognition.
+    @ObservationIgnored public let soundFeedback: SoundFeedback
+
     /// Guards against repeated permission prompts within one start cycle.
     @ObservationIgnored private var hasPromptedThisCycle = false
 
     /// Tracks last reported finger count to avoid flooding pipeline with duplicate events.
     @ObservationIgnored private var lastReportedFingerCount = 0
+
+    /// Closure called on `.recognized` / `.shortcutFired` events.
+    /// The App layer sets this to drive the StatusPanelController.
+    @ObservationIgnored public var onStatusEvent: ((PipelineEvent) -> Void)?
 
     public init(
         configStore: ConfigStore = ConfigStore(),
@@ -47,6 +54,8 @@ public final class AppCoordinator {
         self.configStore = configStore
         self.fileLogger = fileLogger
         self.recognitionLoop = RecognitionLoop(sensitivity: configStore.config.sensitivity)
+        let config = configStore.config
+        self.soundFeedback = SoundFeedback(enabled: config.soundEnabled, volume: config.soundVolume)
     }
 
     // MARK: - Start / Stop
@@ -312,16 +321,23 @@ public final class AppCoordinator {
             // Fire keyboard shortcut
             let success = KeyboardSimulator.fire(shortcut)
             if success {
-                recordEvent(.shortcutFired(gesture: gesture, shortcut: shortcut.stringValue, timestamp: Date()))
+                let event = PipelineEvent.shortcutFired(gesture: gesture, shortcut: shortcut.stringValue, timestamp: Date())
+                recordEvent(event)
+                soundFeedback.play()
+                onStatusEvent?(event)
             } else {
                 recordEvent(.shortcutFailed(gesture: gesture, shortcut: shortcut.stringValue, timestamp: Date()))
             }
             Logger.recognition.info("Recognized: \(gesture.rawValue) → \(shortcut.stringValue) (fired: \(success))")
         } else if isCalibrating {
-            recordEvent(.recognized(gesture: gesture, timestamp: Date()))
+            let event = PipelineEvent.recognized(gesture: gesture, timestamp: Date())
+            recordEvent(event)
             Logger.recognition.info("Recognized (calibration): \(gesture.rawValue) — shortcut suppressed")
         } else {
-            recordEvent(.unmapped(gesture: gesture, timestamp: Date()))
+            let event = PipelineEvent.recognized(gesture: gesture, timestamp: Date())
+            recordEvent(event)
+            soundFeedback.play()
+            onStatusEvent?(event)
             Logger.recognition.info("Recognized: \(gesture.rawValue) → (unmapped)")
         }
 
