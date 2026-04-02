@@ -156,3 +156,17 @@ Tests/
 ```
 
 Total: 34 source files, 21 test files (~3,600 source LOC, ~2,250 test LOC).
+
+## Cross-Phase Infrastructure
+
+These components serve roles beyond their originating phase:
+
+| Component | Created In | Role in Future Phases |
+|-----------|-----------|----------------------|
+| `SampleRecorder` / `SamplePlayer` | Phase 1.5 | Phase 2: sample browser UI. Phase 4: regression testing, auto-calibration input. |
+| `RecognitionLoop.replay()` | Phase 1.5 | Phase 3: validate new recognizers against existing samples. Phase 4: parameter search via replay. |
+| `DiagnosticRunner` | Phase 1 | Phase 2+: extensible via `DiagnosticChecking` protocol for new diagnostic checks. |
+| `.gesturesample` files | Phase 1.5 | Long-lived assets. Format changes must be backward-compatible or include migration. |
+| `OnboardingCoordinator` | Phase 1.5 | Phase 3: may need new steps for expanded gesture types. |
+
+Process documentation for all phases: `docs/process/`.

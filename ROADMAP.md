@@ -1,7 +1,7 @@
 # GestureFire v1 Roadmap
 
 > Canonical phase plan. Supersedes all earlier planning discussions.
-> Updated: 2026-04-01
+> Updated: 2026-04-02
 
 ## Phase Summary
 
@@ -38,60 +38,17 @@
 
 ---
 
-## Phase 1.5: Onboarding + Calibration + Sample Library ⬜
+## Phase 1.5: Onboarding + Verification + Sample Capture ✅
 
 **Goal:** New user can go from first launch to working gesture recognition in under 2 minutes.
 
-### Scope
+**Delivered:** 4-step onboarding wizard, 3 preset schemes, real-time gesture verification with sample recording, sample replay infrastructure, NSWindow lifecycle for menu-bar apps.
 
-1. **First-Run Wizard (4 steps)**
-   - Step 1: Grant accessibility permission (guided, with troubleshooting)
-   - Step 2: Choose gesture preset (e.g. "Browser Navigation", "IDE Shortcuts", "Custom")
-   - Step 3: Practice — user performs each mapped gesture, system confirms recognition
-   - Step 4: Confirm — summary of what was configured, start engine
+**Naming note:** The "Practice" step performs real-time verification + sample capture, not parameter optimization. True calibration (sample-based auto-tuning) is Phase 4.
 
-2. **Sample Recording**
-   - Record TouchFrame sequences as `.gesturesample` files during calibration
-   - Format: JSONL of TouchFrame snapshots with metadata header
-   - Storage: `~/Library/Application Support/GestureFire/samples/`
+**See:** `REVIEW.md` Phase 1.5 section for full retrospective, `docs/PHASE-1.5-ACCEPTANCE.md` for verification checklist.
 
-3. **Sample Replay for Testing**
-   - Feed recorded samples into `RecognitionLoop` via `[any GestureRecognizer]`
-   - Enables deterministic regression tests from real trackpad data
-   - No OMS dependency in replay path (uses TouchFrame abstraction)
-
-4. **Calibration Flow**
-   - After preset selection, user performs each gesture 3× to validate defaults
-   - If recognition fails, offer to adjust sensitivity (guided slider)
-   - Record successful samples as baseline for future comparison
-
-### Verification Criteria
-
-- [ ] First launch shows wizard (detected via absence of config file)
-- [ ] Permission step correctly handles: already granted, needs grant, denied
-- [ ] Practice step recognizes gestures in real-time with visual feedback
-- [ ] At least 3 `.gesturesample` files generated after calibration
-- [ ] Sample replay produces same recognition results as live input
-- [ ] Wizard can be re-triggered from Settings
-
-### Technical Prerequisites (from Phase 1)
-
-- ✅ `TouchFrame` abstraction (OMS-independent)
-- ✅ `frame.timestamp` as sole time authority (replay-safe)
-- ✅ `SensitivityConfig` with 10 parameters + dynamic access
-- ✅ `RecognitionLoop` accepts `[any GestureRecognizer]` (feed from file or live)
-- ✅ Diagnostic infrastructure for permission flow
-
-### New Files (estimated)
-
-| File | Target | Purpose |
-|------|--------|---------|
-| `OnboardingView.swift` | GestureFireApp | 4-step wizard UI |
-| `OnboardingCoordinator.swift` | GestureFireEngine | Wizard state machine |
-| `SampleRecorder.swift` | GestureFireEngine | TouchFrame → .gesturesample |
-| `SamplePlayer.swift` | GestureFireEngine | .gesturesample → TouchFrame stream |
-| `GestureSample.swift` | GestureFireTypes | Sample file format types |
-| `PresetConfig.swift` | GestureFireConfig | Bundled gesture presets |
+**Key files:** 34 source files, 21 test files, ~3,600 source LOC.
 
 ---
 
@@ -181,6 +138,15 @@
 - [ ] Migration handles profile-aware config format
 
 ---
+
+## Process
+
+All phases from Phase 2 onward follow the unified workflow and principles documented in:
+
+- `docs/process/WORKING_PRINCIPLES.md` — 9 validated principles from Phase 1–1.5
+- `docs/process/PHASE_WORKFLOW.md` — 7-step phase lifecycle (kickoff → close)
+- `docs/process/IMPLEMENTATION_PLAYBOOK.md` — rules for implementer collaboration
+- `docs/process/PHASE_TEMPLATE.md` — copy-and-fill template for each new phase
 
 ## Design Principles (all phases)
 
