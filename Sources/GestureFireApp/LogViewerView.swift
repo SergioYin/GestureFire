@@ -80,13 +80,16 @@ struct LogViewerView: View {
     private func loadEntries() {
         isLoading = true
         errorMessage = nil
-        do {
-            entries = try coordinator.readLogEntries(for: selectedDate)
-        } catch {
-            errorMessage = error.localizedDescription
-            entries = []
+        Task {
+            do {
+                let loaded = try coordinator.readLogEntries(for: selectedDate)
+                entries = loaded
+            } catch {
+                errorMessage = error.localizedDescription
+                entries = []
+            }
+            isLoading = false
         }
-        isLoading = false
     }
 }
 

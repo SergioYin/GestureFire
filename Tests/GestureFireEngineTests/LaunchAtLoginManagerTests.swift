@@ -5,13 +5,16 @@ import Testing
 @Suite("LaunchAtLoginManager")
 struct LaunchAtLoginManagerTests {
 
-    @Test("Status query returns a valid status")
+    @Test("Status query returns without crashing")
     func statusQuery() {
         let manager = LaunchAtLoginManager()
         let status = manager.status
-        // In test environment (unsigned, no bundle), status should be .notRegistered or .unknown
-        // The important thing is it doesn't crash
-        #expect(status == .notRegistered || status == .requiresApproval || status != .enabled)
+        // Status depends on system state (could be .enabled, .notRegistered, .requiresApproval, .unknown)
+        // The important thing is it returns a valid value without crashing
+        let validStatuses: [LaunchAtLoginManager.Status] = [.enabled, .notRegistered, .requiresApproval]
+        let isKnown = validStatuses.contains(status)
+        let isUnknown: Bool = if case .unknown = status { true } else { false }
+        #expect(isKnown || isUnknown)
     }
 
     @Test("Enable returns error in unsigned test environment")

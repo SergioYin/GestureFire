@@ -40,10 +40,13 @@ final class StatusPanelController {
         panel.orderFrontRegardless()
 
         // Schedule auto-dismiss
-        dismissTask = Task {
-            try? await Task.sleep(for: dismissDelay)
-            guard !Task.isCancelled else { return }
-            self.hide()
+        dismissTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: self?.dismissDelay ?? .seconds(3))
+                self?.hide()
+            } catch {
+                // Cancelled — nothing to do
+            }
         }
     }
 

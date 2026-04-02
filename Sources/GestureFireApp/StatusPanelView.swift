@@ -41,13 +41,13 @@ struct StatusPanelView: View {
     }
 
     private var colorForEvent: Color {
-        switch event.color {
-        case "green": .green
-        case "blue": .blue
-        case "orange": .orange
-        case "yellow": .yellow
-        case "red": .red
-        default: .secondary
+        switch event.semanticColor {
+        case .green: .green
+        case .blue: .blue
+        case .orange: .orange
+        case .yellow: .yellow
+        case .red: .red
+        case .secondary: .secondary
         }
     }
 

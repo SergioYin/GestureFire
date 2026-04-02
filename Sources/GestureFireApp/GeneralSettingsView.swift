@@ -6,10 +6,13 @@ struct GeneralSettingsView: View {
     let coordinator: AppCoordinator
 
     @State private var launchAtLoginError: String?
+    @State private var launchAtLoginStatus: LaunchAtLoginManager.Status = .notRegistered
 
     private var config: GestureFireConfig {
         coordinator.configStore.config
     }
+
+    private let loginManager = LaunchAtLoginManager()
 
     var body: some View {
         Form {
@@ -55,13 +58,13 @@ struct GeneralSettingsView: View {
                 Toggle("Launch at login", isOn: Binding(
                     get: { config.launchAtLogin },
                     set: { newValue in
-                        let manager = LaunchAtLoginManager()
-                        if let error = manager.sync(with: newValue) {
+                        if let error = loginManager.sync(with: newValue) {
                             launchAtLoginError = error
                         } else {
                             coordinator.configStore.update { $0.launchAtLogin = newValue }
                             launchAtLoginError = nil
                         }
+                        launchAtLoginStatus = loginManager.status
                     }
                 ))
 
@@ -71,13 +74,15 @@ struct GeneralSettingsView: View {
                         .foregroundStyle(.red)
                 }
 
-                let status = LaunchAtLoginManager().status
-                if status == .requiresApproval {
+                if launchAtLoginStatus == .requiresApproval {
                     Text("Launch at login requires approval in System Settings → General → Login Items")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
             }
+        }
+        .onAppear {
+            launchAtLoginStatus = loginManager.status
         }
     }
 }

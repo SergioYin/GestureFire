@@ -60,14 +60,21 @@ public enum PipelineEvent: Sendable, Equatable {
         }
     }
 
-    public var color: String {
+    public enum SemanticColor: String, Sendable {
+        case secondary, blue, orange, yellow, green, red
+    }
+
+    public var semanticColor: SemanticColor {
         switch self {
-        case .frameReceived: "secondary"
-        case .recognized: "blue"
-        case .rejected: "orange"
-        case .unmapped: "yellow"
-        case .shortcutFired: "green"
-        case .shortcutFailed: "red"
+        case .frameReceived: .secondary
+        case .recognized: .blue
+        case .rejected: .orange
+        case .unmapped: .yellow
+        case .shortcutFired: .green
+        case .shortcutFailed: .red
         }
     }
+
+    /// Legacy string accessor for backward compatibility.
+    public var color: String { semanticColor.rawValue }
 }

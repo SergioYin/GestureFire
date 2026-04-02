@@ -337,6 +337,7 @@ public final class AppCoordinator {
         } else if isCalibrating {
             let event = PipelineEvent.recognized(gesture: gesture, timestamp: Date())
             recordEvent(event)
+            // During calibration: no sound, no status panel — only pipeline event for diagnostics
             Logger.recognition.info("Recognized (calibration): \(gesture.rawValue) — shortcut suppressed")
         } else {
             let event = PipelineEvent.recognized(gesture: gesture, timestamp: Date())
