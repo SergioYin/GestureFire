@@ -10,7 +10,7 @@
 | 1 | Core Loop | TipTap 4-direction + shortcut mapping + menu bar UI + diagnostics | ✅ Done |
 | 1H | Hardening | Engine state model, pipeline observability, permission safety, code review fixes | ✅ Done |
 | 1.5 | Onboarding + Calibration | First-run wizard, sample recording/replay, calibration flow | ✅ Done |
-| 2 | Experience Polish | Sound feedback, status panel, log viewer, launch-at-login | ⬜ Next |
+| 2 | Experience Polish | Sound feedback, status panel, log viewer, launch-at-login | ✅ Done |
 | 3 | More Gestures | Multi-finger tap, multi-finger swipe, corner tap | ⬜ |
 | 4 | Smart Tuning | Rejection tracking, keyboard correlation, auto-adjust parameters | ⬜ |
 | 5 | Personalization | Profiles, per-app mappings, import/export | ⬜ |
@@ -52,25 +52,15 @@
 
 ---
 
-## Phase 2: Experience Polish ⬜
+## Phase 2: Experience Polish ✅
 
 **Goal:** Daily-driver comfort — audio/visual feedback, system integration.
 
-### Scope
+**Delivered:** Sound feedback (NSSound, configurable), floating status panel (non-activating NSPanel), log viewer with JSONL parsing + filtering, launch-at-login (SMAppService), General settings tab, sample save failure feedback in onboarding, menu bar tooltip polish.
 
-- Sound feedback on gesture recognition (NSSound, configurable)
-- Status panel (NSPanel) showing last recognized gesture + shortcut fired
-- Log viewer in Settings (read FileLogger JSONL, filterable)
-- Launch-at-login (SMAppService)
-- Menu bar tooltip with engine status
+**See:** `REVIEW.md` Phase 2 section for full retrospective.
 
-### Verification Criteria
-
-- [ ] Sound plays on recognition (can be disabled)
-- [ ] Status panel shows gesture → shortcut mapping in real-time
-- [ ] Log viewer displays today's entries with gesture type filter
-- [ ] Launch-at-login toggle works in Settings
-- [ ] No new gesture types — only UX improvements
+**Key files:** 40 source files, 24 test files, ~4,163 source LOC.
 
 ---
 

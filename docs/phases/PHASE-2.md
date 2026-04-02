@@ -119,28 +119,43 @@ Make GestureFire comfortable as a daily-driver: audio/visual feedback on gesture
 
 | Metric | Value |
 |--------|-------|
-| Commits | ... |
-| Source files (new/modified) | ... |
-| Test files (new/modified) | ... |
-| Source LOC delta | ... |
-| Test LOC delta | ... |
+| Commits | 6 (spec + 4 features + hardening) |
+| Source files (new/modified) | 6 new, 6 modified |
+| Test files (new/modified) | 3 new, 1 modified |
+| Source LOC delta | +563 |
+| Test LOC delta | +299 |
 
 ### Bugs Found
 
 | ID | Severity | Summary | Root Cause |
 |----|----------|---------|------------|
-| ... | P0/P1/P2 | ... | ... |
+| H1 | HIGH | StatusPanelController dismiss race | `try?` swallowed CancellationError |
+| H2 | HIGH | LaunchAtLoginManager per-render instantiation | SMAppService.status called every body eval |
+| H3 | HIGH | Stringly-typed color switch in StatusPanelView | PipelineEvent.color returned String |
+| H4 | LOW→Fixed | Status panel shown during calibration | onStatusEvent not suppressed in calibration branch |
+| M1 | MEDIUM | LogViewerView sync I/O on main thread | isLoading spinner never rendered |
 
 ### What Went Well
 
-- ...
+- Risk-first NSPanel prototype worked immediately (Phase 1.5 window lifecycle lessons)
+- Build discipline maintained throughout
+- Code review caught all 4 HIGH issues before shipping
 
 ### What Needs Improvement
 
-- ...
+- UI view tests absent (consider ViewInspector or snapshot testing)
+- LogEntry needs stable identity (UUID field) for proper SwiftUI List animations
 
 ## Next-Phase Carry-Over
 
 | Item | Target Phase | Notes |
 |------|-------------|-------|
-| ... | Phase 3 | ... |
+| FileLogger Sendable + non-atomic write | Phase 3 | Safe today under @MainActor, risk if usage expands |
+| AppCoordinator.stop() fire-and-forget Task | Phase 3 | May cause dual-source if start() called immediately after stop() |
+| GestureFireConfig.version inert | Phase 4/5 | Reserved for future migration, no action needed now |
+| FileLogger.log() force-unwrap | Phase 3 | Low priority, JSONEncoder always produces valid UTF-8 |
+| Sample browser / management UI | Phase 4 | Re-deferred from Phase 1.5 |
+| Gesture animation previews | Phase 3 | Re-deferred from Phase 1.5 |
+| directionAngleTolerance NOT wired | Phase 3 | Unchanged since Phase 1 |
+| LogEntry stable identity (UUID) | Phase 3 | For proper SwiftUI List animations |
+| UI view test coverage | Phase 3 | Consider ViewInspector or snapshot testing |

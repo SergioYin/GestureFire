@@ -255,3 +255,124 @@ Practice step captures samples but does not analyze them to compute optimal para
 - **Build/test discipline**: Mid-phase, changes accumulated without building or testing. Must always verify after every significant change.
 - **macOS window management expertise**: Too much trial-and-error. Should research NSWindow/NSPanel/activation policy behavior upfront before coding.
 - **Test environment**: Need Xcode installed or a workaround for Swift Testing in CLI-only environments.
+
+---
+
+# Phase 2 Review — Experience Polish
+
+## Scope
+
+Phase 2 delivered daily-driver comfort: sound feedback, floating status panel, log viewer, launch-at-login, and sample save error visibility.
+
+## Stats
+
+| Metric | Value |
+|--------|-------|
+| Commits | 6 (spec + 4 features + hardening) |
+| Source files | 40 (.swift), +6 new |
+| Test files | 24 (.swift), +3 new |
+| Source LOC | ~4,163 (+563) |
+| Test LOC | ~2,549 (+299) |
+| New types | `SoundFeedback`, `StatusPanelController`, `StatusPanelView`, `LogViewerView`, `LogEntryRow`, `GeneralSettingsView`, `LaunchAtLoginManager`, `PipelineEvent.SemanticColor` |
+| Tests | 153 in 30 suites (was 135 in 27) |
+
+## What Was Delivered
+
+### Sound Feedback
+- `SoundFeedback`: fire-and-forget `NSSound` playback with pre-loaded "Tink" sound
+- Configurable: `soundEnabled` toggle + `soundVolume` slider (0–100%)
+- Wired into `AppCoordinator.handleFrame`: plays on `.shortcutFired` and unmapped `.recognized` events
+- Suppressed during calibration
+
+### Status Panel
+- `StatusPanelController`: non-activating `NSPanel` with `.floating` level
+- Does not steal focus, does not block typing
+- Auto-dismisses after 3 seconds (cancellable)
+- Trigger policy: only `.recognized` and `.shortcutFired` events (no noise from rejections)
+- Suppressed during calibration
+
+### Log Viewer
+- `LogViewerView`: new "Logs" tab in Settings
+- Reads FileLogger JSONL with date picker and gesture type filter
+- Reverse-chronological display with entry count
+- Corrupt JSONL lines silently skipped (existing `compactMap`/`try?` in `FileLogger.readEntries`)
+- Async loading via `Task` (spinner renders during I/O)
+
+### Launch-at-Login
+- `LaunchAtLoginManager`: `SMAppService.mainApp` wrapper
+- Status query, enable/disable with error reporting
+- `requiresApproval` state shown as guidance text
+- Toggle in General settings tab
+
+### General Settings Tab
+- New first tab in Settings: sound toggle/volume, status panel toggle, launch-at-login toggle
+- All settings persist via `GestureFireConfig` (backward-compatible `decodeIfPresent`)
+
+### Menu Bar Polish
+- Menu bar title shows engine state + gesture count
+- Existing pipeline event / gesture count display unchanged
+
+### Sample Save Failure Feedback
+- `OnboardingCoordinator.lastSampleSaveError`: observable error state
+- Inline warning label in Practice step when sample save fails
+- Cleared on next successful save
+
+## Bugs Found and Fixed
+
+### H1: StatusPanelController dismiss task cancel race (code review)
+`try?` on `Task.sleep` swallowed `CancellationError`, allowing stale `hide()` calls. Fixed: `try/catch` with cancellation handling + `[weak self]`.
+
+### H2: GeneralSettingsView instantiated LaunchAtLoginManager on every render (code review)
+`SMAppService.mainApp.status` called on every SwiftUI body evaluation. Fixed: cached instance + `.onAppear` for status load.
+
+### H3: StatusPanelView stringly-typed color switch (code review)
+`PipelineEvent.color` returned `String`, risking silent fallback on new cases. Fixed: typed `SemanticColor` enum with exhaustive switch.
+
+### H4: Status panel shown during calibration (code review)
+`.recognized` events during calibration triggered status panel with misleading "No shortcut mapped" subtitle. Fixed: suppress `onStatusEvent` and `soundFeedback.play()` during calibration.
+
+### M1: LogViewerView synchronous file I/O on main thread (code review)
+`isLoading` was set and cleared synchronously — spinner never rendered. Fixed: wrapped in `Task`.
+
+## Known Issues and Carry-Over Items
+
+### `FileLogger` is a `Sendable` struct with non-atomic write path
+**Status**: Currently safe because `log()` is only called from `@MainActor`. If `FileLogger` is ever used from background tasks, it needs actor isolation or a serial queue.
+**Target**: Phase 3 (if FileLogger usage expands) or Phase 4 (smart tuning may log from background)
+
+### `AppCoordinator.stop()` fire-and-forget Task for source.stop()
+**Status**: The unstructured `Task { await source.stop() }` can outlive the coordinator. If `start()` is called immediately after `stop()`, two sources may coexist briefly. Mitigated by `.running`/`.starting` guard, but not fully safe.
+**Target**: Phase 3 (when multiple recognizer sources may amplify the issue)
+
+### `GestureFireConfig.version` field is inert
+**Status**: Decoded but never used for migration logic. All new fields use `decodeIfPresent` with defaults, so backward compatibility is maintained without migrations. The field exists as a reserved hook.
+**Target**: Phase 4 or Phase 5 (when schema changes may require migration)
+
+### `FileLogger.log()` force-unwrap on String encoding
+**Status**: `String(data: data, encoding: .utf8)!` — safe because JSONEncoder always produces valid UTF-8, but violates Swift convention against force-unwraps in production code.
+**Target**: Phase 3 (low priority)
+
+### Sample browser / management UI
+**Status**: Re-deferred from Phase 1.5. `.gesturesample` files accumulate without management UI.
+**Target**: Phase 4 (alongside calibration workflow)
+
+### Gesture animation previews
+**Status**: Re-deferred from Phase 1.5.
+**Target**: Phase 3 (more valuable with expanded gesture vocabulary)
+
+### `directionAngleTolerance` NOT wired
+**Status**: Unchanged from Phase 1. Parameter exists in UI but has no effect.
+**Target**: Phase 3
+
+## What Went Well
+
+- **Risk-first approach**: StatusPanelController's NSPanel prototype worked on first attempt thanks to `.nonactivatingPanel` + `.floating` — Phase 1.5 lessons on window lifecycle paid off.
+- **Build discipline**: `swift build` after every change, no accumulated breakage.
+- **Code review caught real issues**: 4 HIGH findings, all fixed before shipping. SemanticColor enum prevents future string-matching regressions.
+- **Backward-compatible config**: `decodeIfPresent` with defaults means existing config files load without migration.
+
+## What Needs Improvement
+
+- **Test coverage for UI components**: `StatusPanelView`, `LogViewerView`, `GeneralSettingsView` have no unit tests (SwiftUI views are hard to test without ViewInspector or similar). Consider snapshot testing in Phase 3.
+- **LogEntry lacks stable identity**: Uses array index as List key — fragile for animations. Should add UUID field.
+- **`InMemoryPersistence.Storage` uses `@unchecked Sendable`** in tests — should be converted to `@MainActor`-constrained class.
