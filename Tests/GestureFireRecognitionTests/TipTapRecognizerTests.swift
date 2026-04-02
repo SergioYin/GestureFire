@@ -137,6 +137,35 @@ struct TipTapRejectionTests {
         #expect(result2 == nil, "Second gesture within cooldown should be blocked")
     }
 
+    @Test("Two-finger swipe (close fingers) → rejected")
+    func twoFingerSwipeRejected() {
+        var recognizer = TipTapRecognizer(sensitivity: .defaults)
+        // Simulate two fingers close together (like a two-finger scroll)
+        // Distance = 0.05, well below fingerProximityThreshold (0.15)
+        let frames = Fixtures.tipTapSequence(
+            holdPos: SIMD2(0.5, 0.5),
+            tapPos: SIMD2(0.52, 0.53),
+            holdStartMs: 0,
+            tapAppearMs: 250,
+            tapDisappearMs: 350,
+            postTapMs: 400
+        )
+        let result = feedAll(&recognizer, frames: frames)
+        #expect(result == nil, "Should reject when hold and tap fingers are too close (two-finger swipe)")
+    }
+
+    @Test("Fingers just above proximity threshold → recognized")
+    func fingersAboveProximityThreshold() {
+        var recognizer = TipTapRecognizer(sensitivity: .defaults)
+        // Distance = ~0.2, above fingerProximityThreshold (0.15)
+        let frames = Fixtures.tipTapSequence(
+            holdPos: SIMD2(0.3, 0.5),
+            tapPos: SIMD2(0.5, 0.5)
+        )
+        let result = feedAll(&recognizer, frames: frames)
+        #expect(result != nil, "Should recognize when fingers are far enough apart")
+    }
+
     @Test("After cooldown expires, recognition works again")
     func cooldownExpires() {
         var recognizer = TipTapRecognizer(sensitivity: .defaults)

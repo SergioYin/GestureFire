@@ -1,5 +1,6 @@
 import Foundation
 import GestureFireTypes
+import simd
 
 /// Recognizes TipTap gestures (hold one finger, tap another in a direction).
 /// Struct with explicit state machine. Owned exclusively by RecognitionLoop actor.
@@ -92,10 +93,14 @@ public struct TipTapRecognizer: GestureRecognizer {
             }
 
             // Try to match a lifted finger with a hold finger
+            let proximityThreshold = Float(sensitivity.fingerProximityThreshold)
+
             if let holdFinger = holdFingers.first {
                 for lifted in liftedFingers.reversed() {
                     guard lifted.finger.id != holdFinger.id else { continue }
                     guard now.timeIntervalSince(lifted.liftTime) < tapGroupingWindowSec else { continue }
+                    // Reject two-finger swipes: hold and tap must be far enough apart
+                    guard simd_distance(holdFinger.startPosition, lifted.finger.startPosition) >= proximityThreshold else { continue }
 
                     // Success — compute direction
                     let gesture = computeDirection(
