@@ -8,6 +8,9 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
+            GeneralSettingsView(coordinator: coordinator)
+                .tabItem { Label("General", systemImage: "gear") }
+
             GestureMappingView(coordinator: coordinator)
                 .tabItem { Label("Gestures", systemImage: "hand.tap") }
 
