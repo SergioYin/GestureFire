@@ -269,6 +269,12 @@ private struct PracticeStepView: View {
                     .foregroundColor(.green)
             }
 
+            if let error = coordinator.lastSampleSaveError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+            }
+
             if !coordinator.recordedSampleURLs.isEmpty {
                 Text("\(coordinator.recordedSampleURLs.count) sample(s) recorded")
                     .font(.caption)

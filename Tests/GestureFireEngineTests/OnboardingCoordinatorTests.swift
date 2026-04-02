@@ -274,6 +274,59 @@ struct OnboardingCoordinatorTests {
         #expect(coordinator.currentCalibrationGesture == nil)
     }
 
+    @Test("Sample save failure sets lastSampleSaveError")
+    @MainActor
+    func sampleSaveFailureSetsError() throws {
+        // Use a directory that doesn't exist and can't be created
+        let readOnlyDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gesturefire-readonly-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: readOnlyDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: readOnlyDir) }
+
+        // Make the directory read-only so sample save fails
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o444],
+            ofItemAtPath: readOnlyDir.path
+        )
+        defer {
+            // Restore permissions for cleanup
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o755],
+                ofItemAtPath: readOnlyDir.path
+            )
+        }
+
+        let (coordinator, _, _, _) = makeCoordinator(directory: readOnlyDir)
+        coordinator.startCalibration()
+
+        let first = GestureType.allCases[0]
+        feedFrame(to: coordinator)
+
+        // This should succeed in recognition but fail in sample save
+        coordinator.handleRecognizedGesture(first)
+
+        // Error should be surfaced
+        #expect(coordinator.lastSampleSaveError != nil)
+        #expect(coordinator.lastSampleSaveError?.contains("Sample save failed") == true)
+    }
+
+    @Test("Successful sample save clears lastSampleSaveError")
+    @MainActor
+    func successfulSaveClearsError() throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let (coordinator, _, _, _) = makeCoordinator(directory: dir)
+        coordinator.startCalibration()
+
+        let first = GestureType.allCases[0]
+        feedFrame(to: coordinator)
+        coordinator.handleRecognizedGesture(first)
+
+        // No error on successful save
+        #expect(coordinator.lastSampleSaveError == nil)
+        #expect(coordinator.recordedSampleURLs.count == 1)
+    }
+
     // MARK: - Helpers
 
     private func makeTempDir() throws -> URL {

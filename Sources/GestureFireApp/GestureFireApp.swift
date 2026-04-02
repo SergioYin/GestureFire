@@ -95,8 +95,14 @@ struct GestureFireApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     private var coordinator: AppCoordinator { sharedCoordinator }
 
+    private var menuBarTitle: String {
+        let state = coordinator.engineState.displayLabel
+        let count = coordinator.gestureCount
+        return count > 0 ? "GestureFire (\(state) · \(count))" : "GestureFire (\(state))"
+    }
+
     var body: some Scene {
-        MenuBarExtra("GestureFire", systemImage: coordinator.engineState.systemImage) {
+        MenuBarExtra(menuBarTitle, systemImage: coordinator.engineState.systemImage) {
             MenuBarView(coordinator: coordinator)
         }
 

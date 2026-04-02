@@ -59,6 +59,9 @@ public final class OnboardingCoordinator {
     /// URLs of successfully recorded .gesturesample files.
     public private(set) var recordedSampleURLs: [URL] = []
 
+    /// Last sample save error, if any. Cleared on next successful save.
+    public private(set) var lastSampleSaveError: String?
+
     /// How many attempts per gesture during calibration.
     public let attemptsPerGesture = 3
 
@@ -195,8 +198,10 @@ public final class OnboardingCoordinator {
             do {
                 let url = try sampleRecorder.finishRecording()
                 recordedSampleURLs.append(url)
+                lastSampleSaveError = nil
                 Self.logger.info("Saved sample: \(url.lastPathComponent)")
             } catch {
+                lastSampleSaveError = "Sample save failed: \(error.localizedDescription)"
                 Self.logger.warning("Failed to save sample: \(error)")
             }
             calibrationResults[current, default: []].append(true)
