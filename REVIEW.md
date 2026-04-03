@@ -384,3 +384,92 @@ After fixing `animationBehavior`, a residual sound persisted. Root cause: `show(
 - **LogEntry lacks stable identity**: Uses array index as List key — fragile for animations. Should add UUID field. **Target: Phase 3** — fix when expanding log viewer for multi-recognizer events.
 - **`InMemoryPersistence.Storage` uses `@unchecked Sendable`** in tests — should be converted to `@MainActor`-constrained class. **Target: Phase 3** — fix alongside test infrastructure improvements.
 - **NSPanel sound suppression unverified**: The view model refactor + `animationBehavior = .none` is the best-known fix, but user has not yet confirmed the sound is fully eliminated. If residual sound persists, deeper investigation needed (possibly `NSWindow.orderFrontRegardless` itself or macOS version-specific behavior). **Target: Phase 3 P0 if still present.**
+
+---
+
+# Phase 2.5 Review — UI Structure Polish
+
+## Scope
+
+Phase 2.5 restructured the settings information architecture: General tab renamed to Feedback, Diagnostics merged into Status tab, menu bar title shortened, onboarding copy tightened.
+
+## Stats
+
+| Metric | Value |
+|--------|-------|
+| Commits | 1 |
+| Source files modified | 6 |
+| Test files modified | 0 |
+
+## What Was Delivered
+
+- Settings tab restructure: General → Feedback, standalone Diagnostics removed, merged into Status tab
+- Menu bar title: `"GF · 5"` / `"GF · Off"` / `"GF ⚠"` / `"GF ..."`
+- Onboarding copy rewrites for clarity and conciseness
+- Window default size adjusted to 560×520
+
+**See:** `docs/phases/PHASE-2.5.md`
+
+---
+
+# Phase 2.6 Review — Visual Polish
+
+## Scope
+
+Phase 2.6 made the interface look finished with surface hierarchy, visual weight on status indicators, and consistent spacing — without changing any behavior.
+
+## Stats
+
+| Metric | Value |
+|--------|-------|
+| Commits | 1 |
+| Source files (new/modified) | 1 new, 7 modified |
+| Test files modified | 0 |
+| Source LOC delta | +141 net |
+| Tests | 153 in 30 suites — zero regression |
+
+## What Was Delivered
+
+### DesignSystem.swift (V1)
+- `Spacing` enum: 4pt grid (xs=4, sm=8, md=12, lg=16, xl=24, xxl=32)
+- `SettingsCard`: rounded rect with `.background.secondary` fill
+- `StatusBadge`: icon + text in tinted capsule
+
+### Settings Surface Hierarchy (V2)
+- `.formStyle(.grouped)` on Feedback, Gestures, Advanced tabs — native card grouping
+- Section headers: `.subheadline.weight(.medium)`
+- Advanced: parameter values right-aligned in `.title3.monospacedDigit()`, slider `.tint(.accentColor)`
+
+### Status Tab Hero Card (V2)
+- Engine state: full-width card with `engineStateColor.opacity(0.08)` background, 28pt icon, `.title3` text
+- System checks and connection test: `SettingsCard` wrappers
+- Recent events: console-style with `.black.opacity(0.03)` background, monospaced font
+
+### Onboarding Visual Lift (V3)
+- Step indicator: 32pt pills (from 24pt), `.callout.bold()` numbers, 48px connecting lines
+- Permission/Confirm steps: 96pt background circles + 44pt icons
+- Preset cards: `Color(.controlBackgroundColor)` unselected fill, accent left border bar on selection
+- Practice: calibration grid in card, accent-tinted current row
+
+### Status Panel Readability (V4)
+- `.thickMaterial` (from `.ultraThinMaterial`)
+- `.title` icon, `.headline` title text
+- 3pt accent-colored left border
+
+### Spacing Pass (V5)
+- All hardcoded padding replaced with `Spacing` constants across all view files
+
+## Bugs Found
+
+None.
+
+## What Went Well
+
+- `.formStyle(.grouped)` gave us card grouping without `Form → ScrollView` risk
+- Only Status tab needed ScrollView conversion (read-heavy, no form controls)
+- Zero test regression despite touching 7 files
+
+## What Needs Improvement
+
+- Tab/VoiceOver verification pending for Status tab ScrollView conversion
+- LogViewerView got minimal changes (spacing only) — alternating row tint deferred

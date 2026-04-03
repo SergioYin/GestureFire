@@ -11,6 +11,8 @@
 | 1H | Hardening | Engine state model, pipeline observability, permission safety, code review fixes | ✅ Done |
 | 1.5 | Onboarding + Calibration | First-run wizard, sample recording/replay, calibration flow | ✅ Done |
 | 2 | Experience Polish | Sound feedback, status panel, log viewer, launch-at-login | ✅ Done |
+| 2.5 | UI Structure Polish | Settings restructure, menu bar simplification, onboarding copy | ✅ Done |
+| 2.6 | Visual Polish | Design system, surface hierarchy, status weight, spacing | ✅ Done |
 | 3 | More Gestures | Multi-finger tap, multi-finger swipe, corner tap | ⬜ |
 | 4 | Smart Tuning | Rejection tracking, keyboard correlation, auto-adjust parameters | ⬜ |
 | 5 | Personalization | Profiles, per-app mappings, import/export | ⬜ |
@@ -61,6 +63,28 @@
 **See:** `REVIEW.md` Phase 2 section for full retrospective.
 
 **Key files:** 40 source files, 24 test files, ~4,163 source LOC.
+
+---
+
+## Phase 2.5: UI Structure Polish ✅
+
+**Goal:** Clean up information architecture — settings tab restructure, menu bar simplification, onboarding copy rewrites.
+
+**Delivered:** Settings tabs reorganized (General renamed to Feedback, Diagnostics merged into Status tab), menu bar title shortened to `"GF · N"`, onboarding copy tightened, visual consistency pass.
+
+**See:** `docs/phases/PHASE-2.5.md` for spec.
+
+---
+
+## Phase 2.6: Visual Polish ✅
+
+**Goal:** Make the interface look finished with surface hierarchy, visual weight on status indicators, and consistent spacing.
+
+**Delivered:** `DesignSystem.swift` (Spacing grid, SettingsCard, StatusBadge), `.formStyle(.grouped)` on all Form tabs, Status tab hero card with tinted background, onboarding visual lift (32pt pills, 96pt icon circles, accent left border on preset cards), status panel with `.thickMaterial` + `.headline` text + accent border.
+
+**Key files:** 42 source files, 24 test files. 1 new file, 7 modified. 153 tests pass.
+
+**See:** `docs/phases/PHASE-2.6.md` for spec and retrospective.
 
 ---
 

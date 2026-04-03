@@ -154,34 +154,38 @@ Only the Status tab converts to `ScrollView`. All others keep `Form` and apply v
 
 ## Review / Retrospective
 
-> Fill after implementation, before acceptance.
-
 ### Stats
 
 | Metric | Value |
 |--------|-------|
-| Commits | ... |
-| Source files (new/modified) | ... |
-| Test files (new/modified) | ... |
-| Source LOC delta | ... |
-| Test LOC delta | ... |
+| Commits | 1 (all V1-V5 workstreams in one commit) |
+| Source files (new/modified) | 1 new (`DesignSystem.swift`), 7 modified |
+| Test files (new/modified) | 0 — pure visual, no behavior changes |
+| Source LOC delta | +141 net (+366 insertions, -225 deletions) |
+| Test LOC delta | 0 |
 
 ### Bugs Found
 
-| ID | Severity | Summary | Root Cause |
-|----|----------|---------|------------|
-| ... | P0/P1/P2 | ... | ... |
+None. Pure visual changes with no behavior impact.
 
 ### What Went Well
 
-- ...
+- **Constraint #2 validated**: Only Status tab converted from `Form → ScrollView`. All other tabs kept `Form` with `.formStyle(.grouped)` which provides native card grouping without losing keyboard/accessibility support.
+- **Constraint #3 held**: `DesignSystem.swift` contains only 3 components (`Spacing`, `SettingsCard`, `StatusBadge`), all used 2+ times. No speculative abstractions.
+- **Zero test regression**: 153 tests in 30 suites, all green, no modifications needed.
+- **`.formStyle(.grouped)`**: Discovered this gives Form-based tabs the visual card grouping we wanted without losing any Form behavior. Avoided risky ScrollView conversions.
 
 ### What Needs Improvement
 
-- ...
+- **Tab/VoiceOver verification pending**: Status tab ScrollView conversion needs manual verification per spec. If Tab key navigation or VoiceOver breaks, revert to Form.
+- **LogViewerView minimal changes**: Alternating row tint was not achievable within `List` constraints without adding complexity. Only spacing constants applied.
 
 ## Next-Phase Carry-Over
 
 | Item | Target Phase | Notes |
 |------|-------------|-------|
-| ... | Phase 3 | ... |
+| ShortcutField pill restyle | Phase 3 | Changes interaction affordance, out of visual-only scope |
+| Slider endpoint labels | Phase 3 | New visual elements |
+| Step transition animation | Phase 3 | Behavior change |
+| Card hover effects | Phase 5 | New interaction |
+| Tab/VoiceOver verification | Pre-Phase 3 | Manual check before adding new gesture UI |
