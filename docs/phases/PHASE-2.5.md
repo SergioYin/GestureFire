@@ -173,7 +173,7 @@ Make GestureFire's interface consistent, glanceable, and free of engineering jar
 | Status panel enter/exit animation | Risk of reintroducing system sounds | Phase 3 (re-evaluate) |
 | Log viewer export | New feature | Phase 4 |
 | Log viewer time grouping | Enhancement, not structural | Phase 3+ |
-| Accessibility audit | Orthogonal effort | Unphased (standalone) |
+| Accessibility audit | Orthogonal effort, requires dedicated VoiceOver + keyboard-nav testing | Phase 5 |
 
 ## Review / Retrospective
 
