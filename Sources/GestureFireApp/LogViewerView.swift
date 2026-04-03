@@ -41,8 +41,8 @@ struct LogViewerView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.sm)
 
             Divider()
 
@@ -120,6 +120,6 @@ struct LogEntryRow: View {
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, Spacing.xs)
     }
 }

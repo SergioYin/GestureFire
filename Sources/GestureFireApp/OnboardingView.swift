@@ -12,13 +12,11 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Step indicator
             StepIndicator(currentStep: coordinator.currentStep)
-                .padding()
+                .padding(Spacing.lg)
 
             Divider()
 
-            // Step content
             Group {
                 switch coordinator.currentStep {
                 case .permission:
@@ -32,13 +30,12 @@ struct OnboardingView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding()
+            .padding(Spacing.xl)
 
             Divider()
 
-            // Navigation buttons
             NavigationBar(coordinator: coordinator, appCoordinator: appCoordinator, onDismiss: onDismiss)
-                .padding()
+                .padding(Spacing.lg)
         }
         .frame(minWidth: 560, minHeight: 420)
         .onAppear {
@@ -58,31 +55,29 @@ private struct StepIndicator: View {
         HStack(spacing: 0) {
             ForEach(Array(Self.steps.enumerated()), id: \.element.rawValue) { index, step in
                 if index > 0 {
-                    // Connecting line
                     Rectangle()
-                        .fill(step <= currentStep ? Color.accentColor : Color.secondary.opacity(0.3))
+                        .fill(step <= currentStep ? Color.accentColor : Color.secondary.opacity(0.2))
                         .frame(height: 2)
-                        .frame(maxWidth: 40)
+                        .frame(maxWidth: 48)
                 }
 
-                // Numbered pill
-                HStack(spacing: 6) {
+                HStack(spacing: Spacing.sm) {
                     ZStack {
                         Circle()
-                            .fill(step <= currentStep ? Color.accentColor : Color.secondary.opacity(0.3))
-                            .frame(width: 24, height: 24)
+                            .fill(step <= currentStep ? Color.accentColor : Color.secondary.opacity(0.2))
+                            .frame(width: 32, height: 32)
                         if step < currentStep {
                             Image(systemName: "checkmark")
-                                .font(.caption2.bold())
+                                .font(.caption.bold())
                                 .foregroundStyle(.white)
                         } else {
                             Text("\(index + 1)")
-                                .font(.caption2.bold())
+                                .font(.callout.bold())
                                 .foregroundStyle(step <= currentStep ? .white : .secondary)
                         }
                     }
                     Text(stepLabel(step))
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundStyle(step == currentStep ? .primary : .secondary)
                 }
             }
@@ -105,10 +100,15 @@ private struct PermissionStepView: View {
     let coordinator: OnboardingCoordinator
 
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "hand.raised.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(Color.accentColor)
+        VStack(spacing: Spacing.xl) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.1))
+                    .frame(width: 96, height: 96)
+                Image(systemName: "hand.raised.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(Color.accentColor)
+            }
 
             Text("Accessibility Permission")
                 .font(.title2.bold())
@@ -120,7 +120,7 @@ private struct PermissionStepView: View {
 
             switch coordinator.permissionState {
             case .unknown, .denied:
-                VStack(spacing: 8) {
+                VStack(spacing: Spacing.sm) {
                     Button("Open System Settings") {
                         coordinator.requestPermission()
                     }
@@ -139,7 +139,7 @@ private struct PermissionStepView: View {
                 }
 
             case .requested:
-                VStack(spacing: 8) {
+                VStack(spacing: Spacing.sm) {
                     ProgressView()
                     Text("Waiting for permission...")
                         .font(.caption)
@@ -152,12 +152,11 @@ private struct PermissionStepView: View {
                         coordinator.resetPermissionState()
                     }
                     .font(.caption)
-                    .padding(.top, 4)
+                    .padding(.top, Spacing.xs)
                 }
 
             case .granted:
-                Label("Permission Granted", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                StatusBadge(title: "Permission Granted", systemImage: "checkmark.circle.fill", color: .green)
                     .font(.title3)
             }
         }
@@ -170,14 +169,14 @@ private struct PresetStepView: View {
     let coordinator: OnboardingCoordinator
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: Spacing.xl) {
             Text("Choose a Preset")
                 .font(.title2.bold())
 
             Text("Select a gesture-to-shortcut mapping to get started.")
                 .foregroundStyle(.secondary)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: Spacing.md) {
                 ForEach(GesturePreset.allPresets) { preset in
                     PresetCard(
                         preset: preset,
@@ -188,7 +187,7 @@ private struct PresetStepView: View {
             }
 
             if let preset = coordinator.selectedPreset, !preset.gestures.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text("Mappings:")
                         .font(.caption.bold())
                     ForEach(GestureType.allCases, id: \.self) { gesture in
@@ -204,9 +203,8 @@ private struct PresetStepView: View {
                         }
                     }
                 }
-                .padding()
-                .background(.quaternary)
-                .cornerRadius(8)
+                .padding(Spacing.md)
+                .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
             }
         }
     }
@@ -219,25 +217,38 @@ private struct PresetCard: View {
 
     var body: some View {
         Button(action: onSelect) {
-            VStack(spacing: 8) {
-                Image(systemName: preset.icon)
-                    .font(.title2)
-                Text(preset.displayName)
-                    .font(.subheadline.bold())
-                Text(preset.description)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
+            HStack(spacing: 0) {
+                // Accent bar on selected card
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.accentColor)
+                        .frame(width: 4)
+                }
+
+                VStack(spacing: Spacing.sm) {
+                    Image(systemName: preset.icon)
+                        .font(.title)
+                    Text(preset.displayName)
+                        .font(.subheadline.bold())
+                    Text(preset.description)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity, minHeight: 100)
+                .padding(Spacing.md)
             }
-            .frame(maxWidth: .infinity, minHeight: 100)
-            .padding(12)
-            .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+            .background(
+                isSelected
+                    ? Color.accentColor.opacity(0.1)
+                    : Color(.controlBackgroundColor)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: isSelected ? 2 : 1)
+                    .stroke(isSelected ? Color.accentColor : .clear, lineWidth: 1)
             )
-            .cornerRadius(8)
         }
         .buttonStyle(.plain)
     }
@@ -248,11 +259,10 @@ private struct PresetCard: View {
 private struct PracticeStepView: View {
     let coordinator: OnboardingCoordinator
     let appCoordinator: AppCoordinator
-    /// Snapshot of gestureCount to detect new recognitions (including same gesture twice).
     @State private var lastSeenGestureCount = 0
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: Spacing.xl) {
             Text("Test Your Gestures")
                 .font(.title2.bold())
 
@@ -261,8 +271,8 @@ private struct PracticeStepView: View {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: 400)
 
-            // Always show the gesture grid so user sees what's expected
-            VStack(spacing: 12) {
+            // Calibration grid inside a card
+            VStack(spacing: Spacing.sm) {
                 ForEach(GestureType.allCases, id: \.self) { gesture in
                     CalibrationRow(
                         gesture: gesture,
@@ -272,7 +282,8 @@ private struct PracticeStepView: View {
                     )
                 }
             }
-            .fixedSize(horizontal: false, vertical: true)
+            .padding(Spacing.lg)
+            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
 
             if coordinator.isCalibrating {
                 if let current = coordinator.currentCalibrationGesture {
@@ -292,8 +303,7 @@ private struct PracticeStepView: View {
             }
 
             if coordinator.calibrationPassed {
-                Label("All gestures verified!", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                StatusBadge(title: "All gestures verified!", systemImage: "checkmark.circle.fill", color: .green)
             }
 
             if let error = coordinator.lastSampleSaveError {
@@ -308,7 +318,6 @@ private struct PracticeStepView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        // Detect ANY new gesture recognition by watching gestureCount changes.
         .onChange(of: appCoordinator.gestureCount) { _, newCount in
             guard coordinator.isCalibrating,
                   newCount > lastSeenGestureCount,
@@ -332,7 +341,7 @@ private struct CalibrationRow: View {
                 .foregroundStyle(isCurrent ? .primary : .secondary)
                 .frame(minWidth: 100, alignment: .leading)
 
-            HStack(spacing: 6) {
+            HStack(spacing: Spacing.sm) {
                 ForEach(0..<maxAttempts, id: \.self) { index in
                     if index < attempts.count {
                         Image(systemName: attempts[index] ? "checkmark.circle.fill" : "xmark.circle.fill")
@@ -350,6 +359,14 @@ private struct CalibrationRow: View {
                     .font(.caption)
             }
         }
+        .padding(.vertical, Spacing.xs)
+        .padding(.horizontal, Spacing.sm)
+        .background(
+            isCurrent
+                ? Color.accentColor.opacity(0.06)
+                : Color.clear,
+            in: RoundedRectangle(cornerRadius: 6)
+        )
     }
 }
 
@@ -359,18 +376,23 @@ private struct ConfirmStepView: View {
     let coordinator: OnboardingCoordinator
 
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.green)
+        VStack(spacing: Spacing.xl) {
+            ZStack {
+                Circle()
+                    .fill(Color.green.opacity(0.1))
+                    .frame(width: 96, height: 96)
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(.green)
+            }
 
             Text("Ready to Go!")
                 .font(.title2.bold())
 
             if let preset = coordinator.selectedPreset {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text("Preset: \(preset.displayName)")
-                        .font(.subheadline)
+                        .font(.subheadline.weight(.medium))
 
                     if !preset.gestures.isEmpty {
                         ForEach(GestureType.allCases, id: \.self) { gesture in
@@ -387,26 +409,25 @@ private struct ConfirmStepView: View {
                         }
                     }
                 }
-                .padding()
-                .background(.quaternary)
-                .cornerRadius(8)
+                .padding(Spacing.lg)
+                .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
                 .frame(maxWidth: 300)
             }
 
             // Practice results summary
-            VStack(spacing: 4) {
+            VStack(spacing: Spacing.xs) {
                 if coordinator.calibrationPassed {
-                    Label("All gestures verified", systemImage: "checkmark.circle")
-                        .font(.caption)
-                        .foregroundStyle(.green)
+                    StatusBadge(title: "All gestures verified", systemImage: "checkmark.circle", color: .green)
                 } else {
                     let verified = coordinator.calibrationResults.values.filter { results in
                         results.contains(true)
                     }.count
                     let total = GestureType.allCases.count
-                    Label("\(verified)/\(total) gestures verified", systemImage: "info.circle")
-                        .font(.caption)
-                        .foregroundStyle(verified > 0 ? .blue : .secondary)
+                    StatusBadge(
+                        title: "\(verified)/\(total) gestures verified",
+                        systemImage: "info.circle",
+                        color: verified > 0 ? .blue : .secondary
+                    )
                 }
 
                 if !coordinator.recordedSampleURLs.isEmpty {

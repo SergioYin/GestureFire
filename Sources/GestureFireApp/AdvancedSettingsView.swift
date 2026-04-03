@@ -12,7 +12,7 @@ struct AdvancedSettingsView: View {
 
     var body: some View {
         Form {
-            Section("TipTap Parameters") {
+            Section {
                 parameterRow(
                     .holdThresholdMs,
                     label: "Hold Duration",
@@ -38,13 +38,16 @@ struct AdvancedSettingsView: View {
                     unit: "ms"
                 )
                 // directionAngleTolerance intentionally hidden — not wired into recognizer.
-                // Will be exposed in Phase 3 when direction logic is implemented.
+            } header: {
+                Text("TipTap Parameters")
+                    .font(.subheadline.weight(.medium))
             }
 
             Section {
                 Button("Reset to Defaults") {
                     showResetConfirmation = true
                 }
+                .foregroundStyle(.secondary)
                 .confirmationDialog(
                     "Reset all parameters to defaults?",
                     isPresented: $showResetConfirmation,
@@ -60,6 +63,7 @@ struct AdvancedSettingsView: View {
                 }
             }
         }
+        .formStyle(.grouped)
     }
 
     @ViewBuilder
@@ -72,29 +76,34 @@ struct AdvancedSettingsView: View {
         let bounds = ParameterBounds.bounds(for: param)
         let value = sensitivity.value(for: param)
 
-        VStack(alignment: .leading, spacing: 4) {
-            LabeledContent(label) {
-                HStack {
-                    Slider(
-                        value: Binding(
-                            get: { value },
-                            set: { newValue in
-                                coordinator.configStore.update { config in
-                                    config.sensitivity = config.sensitivity.withValue(newValue, for: param)
-                                }
-                                Task { await coordinator.reloadSensitivity() }
-                            }
-                        ),
-                        in: bounds.min...bounds.max
-                    )
-                    Text("\(value, specifier: "%.1f")\(unit)")
-                        .frame(width: 80, alignment: .trailing)
-                        .monospacedDigit()
-                }
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack {
+                Text(label)
+                    .font(.body)
+                Spacer()
+                Text("\(value, specifier: "%.1f")\(unit)")
+                    .font(.title3.monospacedDigit())
+                    .foregroundStyle(.primary)
             }
+
+            Slider(
+                value: Binding(
+                    get: { value },
+                    set: { newValue in
+                        coordinator.configStore.update { config in
+                            config.sensitivity = config.sensitivity.withValue(newValue, for: param)
+                        }
+                        Task { await coordinator.reloadSensitivity() }
+                    }
+                ),
+                in: bounds.min...bounds.max
+            )
+            .tint(.accentColor)
+
             Text(description)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .padding(.vertical, Spacing.xs)
     }
 }

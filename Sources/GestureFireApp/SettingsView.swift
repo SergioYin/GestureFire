@@ -23,7 +23,7 @@ struct SettingsView: View {
             StatusSettingsView(coordinator: coordinator)
                 .tabItem { Label("Status", systemImage: "stethoscope") }
         }
-        .padding()
+        .padding(Spacing.sm)
     }
 }
 
@@ -33,11 +33,7 @@ struct GestureMappingView: View {
     let coordinator: AppCoordinator
     var body: some View {
         Form {
-            Section("TipTap Gestures") {
-                Text("Format: Modifier+Key, e.g. cmd+left, ctrl+shift+t")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
+            Section {
                 ForEach(GestureType.allCases, id: \.self) { gesture in
                     LabeledContent(gesture.displayName) {
                         ShortcutField(
@@ -54,8 +50,15 @@ struct GestureMappingView: View {
                         )
                     }
                 }
+            } header: {
+                Text("TipTap Gestures")
+                    .font(.subheadline.weight(.medium))
+            } footer: {
+                Text("Format: Modifier+Key, e.g. cmd+left, ctrl+shift+t")
+                    .font(.caption)
             }
         }
+        .formStyle(.grouped)
     }
 }
 
@@ -68,7 +71,7 @@ struct ShortcutField: View {
     @State private var parseError = false
 
     var body: some View {
-        HStack {
+        HStack(spacing: Spacing.sm) {
             TextField("e.g. cmd+left", text: $text)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 200)
@@ -93,7 +96,7 @@ struct ShortcutField: View {
                 Text("Invalid format. Use Modifier+Key, e.g. cmd+left")
                     .font(.caption2)
                     .foregroundStyle(.red)
-                    .offset(y: 16)
+                    .offset(y: Spacing.lg)
             }
         }
     }

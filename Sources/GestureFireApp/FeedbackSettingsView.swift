@@ -16,7 +16,7 @@ struct FeedbackSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Recognition Feedback") {
+            Section {
                 Toggle("Play sound on gesture recognition", isOn: Binding(
                     get: { config.soundEnabled },
                     set: { newValue in
@@ -27,7 +27,10 @@ struct FeedbackSettingsView: View {
 
                 if config.soundEnabled {
                     LabeledContent("Volume") {
-                        HStack {
+                        HStack(spacing: Spacing.sm) {
+                            Image(systemName: "speaker.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                             Slider(
                                 value: Binding(
                                     get: { config.soundVolume },
@@ -38,9 +41,14 @@ struct FeedbackSettingsView: View {
                                 ),
                                 in: 0...1
                             )
+                            Image(systemName: "speaker.wave.3.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                             Text("\(Int(config.soundVolume * 100))%")
                                 .frame(width: 40, alignment: .trailing)
                                 .monospacedDigit()
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -51,9 +59,12 @@ struct FeedbackSettingsView: View {
                         coordinator.configStore.update { $0.statusPanelEnabled = newValue }
                     }
                 ))
+            } header: {
+                Text("Recognition Feedback")
+                    .font(.subheadline.weight(.medium))
             }
 
-            Section("System") {
+            Section {
                 Toggle("Launch at login", isOn: Binding(
                     get: { config.launchAtLogin },
                     set: { newValue in
@@ -78,8 +89,12 @@ struct FeedbackSettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
+            } header: {
+                Text("System")
+                    .font(.subheadline.weight(.medium))
             }
         }
+        .formStyle(.grouped)
         .onAppear {
             launchAtLoginStatus = loginManager.status
         }

@@ -3,7 +3,7 @@ import GestureFireTypes
 import SwiftUI
 
 /// Settings tab that replaces the standalone Diagnostics window.
-/// Shows engine state, system checks, recent events, and troubleshooting.
+/// Uses ScrollView (not Form) since it's read-heavy, not form-heavy.
 struct StatusSettingsView: View {
     let coordinator: AppCoordinator
     @State private var diagnosticResults: [DiagnosticResult] = []
@@ -20,13 +20,16 @@ struct StatusSettingsView: View {
     }
 
     var body: some View {
-        Form {
-            engineStateSection
-            systemChecksSection
-            recentEventsSection
-            if allChecksPassed {
-                connectionTestSection
+        ScrollView {
+            VStack(spacing: Spacing.lg) {
+                engineStateCard
+                systemChecksCard
+                recentEventsCard
+                if allChecksPassed {
+                    connectionTestCard
+                }
             }
+            .padding(Spacing.lg)
         }
         .task {
             runChecks()
@@ -37,25 +40,32 @@ struct StatusSettingsView: View {
         }
     }
 
-    // MARK: - Engine State
+    // MARK: - Engine State (Hero Card)
 
-    private var engineStateSection: some View {
-        Section("Engine") {
-            HStack {
-                Image(systemName: coordinator.engineState.systemImage)
-                    .foregroundStyle(engineStateColor)
-                    .font(.title3)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(coordinator.engineState.displayLabel)
-                        .font(.headline)
-                    Text(engineStateExplanation)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                engineActionButton
+    private var engineStateCard: some View {
+        HStack(spacing: Spacing.lg) {
+            Image(systemName: coordinator.engineState.systemImage)
+                .font(.system(size: 28))
+                .foregroundStyle(engineStateColor)
+                .frame(width: 40)
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text(coordinator.engineState.displayLabel)
+                    .font(.title3.weight(.semibold))
+                Text(engineStateExplanation)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
+
+            Spacer()
+
+            engineActionButton
         }
+        .padding(Spacing.lg)
+        .background(
+            engineStateColor.opacity(0.08),
+            in: RoundedRectangle(cornerRadius: 10)
+        )
     }
 
     @ViewBuilder
@@ -105,47 +115,52 @@ struct StatusSettingsView: View {
 
     // MARK: - System Checks
 
-    private var systemChecksSection: some View {
-        Section("System Checks") {
-            if diagnosticResults.isEmpty && !isRunning {
-                Text("Checking...")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(Array(diagnosticResults.enumerated()), id: \.offset) { _, result in
-                    HStack(alignment: .top) {
-                        Image(systemName: result.status == .pass ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundStyle(result.status == .pass ? .green : .red)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(result.name)
-                            if let fix = result.fixInstruction {
-                                Text(fix)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+    private var systemChecksCard: some View {
+        SettingsCard {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                Text("System Checks")
+                    .font(.subheadline.weight(.medium))
+
+                if diagnosticResults.isEmpty && !isRunning {
+                    Text("Checking...")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(Array(diagnosticResults.enumerated()), id: \.offset) { _, result in
+                        HStack(alignment: .top, spacing: Spacing.sm) {
+                            Image(systemName: result.status == .pass ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundStyle(result.status == .pass ? .green : .red)
+                                .font(.body)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(result.name)
+                                    .font(.body)
+                                if let fix = result.fixInstruction {
+                                    Text(fix)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
+                            Spacer()
                         }
-                        Spacer()
+                    }
+
+                    if hasAccessibilityFailure {
+                        Button("Open System Settings & Request Permission") {
+                            coordinator.requestAccessibilityPermission()
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
                 }
 
-                if hasAccessibilityFailure {
-                    Button("Open System Settings & Request Permission") {
-                        coordinator.requestAccessibilityPermission()
+                HStack(spacing: Spacing.sm) {
+                    Button(isRunning ? "Checking..." : "Re-run Checks") {
+                        layer2Confirmed = nil
+                        runChecks()
                     }
-                    .buttonStyle(.borderedProminent)
-                }
-            }
+                    .disabled(isRunning)
 
-            HStack {
-                Button(isRunning ? "Checking..." : "Re-run Checks") {
-                    layer2Confirmed = nil
-                    runChecks()
-                }
-                .disabled(isRunning)
-
-                if allChecksPassed {
-                    Label("All Passed", systemImage: "checkmark.seal.fill")
-                        .foregroundStyle(.green)
-                        .font(.caption)
+                    if allChecksPassed {
+                        StatusBadge(title: "All Passed", systemImage: "checkmark.seal.fill", color: .green)
+                    }
                 }
             }
         }
@@ -153,63 +168,79 @@ struct StatusSettingsView: View {
 
     // MARK: - Recent Events
 
-    private var recentEventsSection: some View {
-        Section("Recent Events") {
-            if coordinator.recentEvents.isEmpty {
-                Text("No events yet. Enable the engine and perform a gesture.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                let events = Array(coordinator.recentEvents.suffix(5).reversed())
-                ForEach(Array(events.enumerated()), id: \.offset) { index, event in
-                    HStack(alignment: .top, spacing: 6) {
-                        Image(systemName: event.systemImage)
-                            .foregroundStyle(eventColor(event))
-                            .frame(width: 16)
-                        Text(event.displayDescription)
-                            .font(.caption)
-                        Spacer()
-                        Text(timeAgo(event.timestamp))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+    private var recentEventsCard: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("Recent Events")
+                .font(.subheadline.weight(.medium))
+                .padding(.horizontal, Spacing.lg)
+
+            VStack(spacing: 0) {
+                if coordinator.recentEvents.isEmpty {
+                    Text("No events yet. Enable the engine and perform a gesture.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(Spacing.lg)
+                } else {
+                    let events = Array(coordinator.recentEvents.suffix(5).reversed())
+                    ForEach(Array(events.enumerated()), id: \.offset) { index, event in
+                        HStack(alignment: .top, spacing: Spacing.sm) {
+                            Image(systemName: event.systemImage)
+                                .foregroundStyle(eventColor(event))
+                                .frame(width: 16)
+                            Text(event.displayDescription)
+                                .font(.system(.caption, design: .monospaced))
+                            Spacer()
+                            Text(timeAgo(event.timestamp))
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, Spacing.lg)
+                        .padding(.vertical, Spacing.sm)
+                        .opacity(index == 0 ? 1.0 : 0.7)
                     }
-                    .opacity(index == 0 ? 1.0 : 0.7)
                 }
             }
+            .background(.black.opacity(0.03), in: RoundedRectangle(cornerRadius: 10))
         }
     }
 
     // MARK: - Connection Test
 
-    private var connectionTestSection: some View {
-        Section("Connection Test") {
-            if let event = coordinator.lastPipelineEvent {
-                HStack(spacing: 6) {
-                    Image(systemName: event.systemImage)
-                        .foregroundStyle(eventColor(event))
-                    Text(event.displayDescription)
-                        .font(.callout)
+    private var connectionTestCard: some View {
+        SettingsCard {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                Text("Connection Test")
+                    .font(.subheadline.weight(.medium))
+
+                if let event = coordinator.lastPipelineEvent {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: event.systemImage)
+                            .foregroundStyle(eventColor(event))
+                        Text(event.displayDescription)
+                            .font(.callout)
+                    }
                 }
-            }
 
-            Text("Try a gesture now. Did the mapped shortcut trigger?")
-                .font(.caption)
+                Text("Try a gesture now. Did the mapped shortcut trigger?")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-            HStack(spacing: 12) {
-                Button("Yes, it worked") { layer2Confirmed = true }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.green)
-                Button("No, nothing happened") { layer2Confirmed = false }
-                    .buttonStyle(.bordered)
-            }
+                HStack(spacing: Spacing.md) {
+                    Button("Yes, it worked") { layer2Confirmed = true }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.green)
+                    Button("No, nothing happened") { layer2Confirmed = false }
+                        .buttonStyle(.bordered)
+                }
 
-            if let confirmed = layer2Confirmed {
-                if confirmed {
-                    Label("All systems working!", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                } else {
-                    DisclosureGroup("Troubleshooting") {
-                        troubleshootingContent
+                if let confirmed = layer2Confirmed {
+                    if confirmed {
+                        StatusBadge(title: "All systems working!", systemImage: "checkmark.circle.fill", color: .green)
+                    } else {
+                        DisclosureGroup("Troubleshooting") {
+                            troubleshootingContent
+                        }
                     }
                 }
             }
@@ -219,7 +250,7 @@ struct StatusSettingsView: View {
     @ViewBuilder
     private var troubleshootingContent: some View {
         let lastEvent = coordinator.lastPipelineEvent
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             if lastEvent == nil {
                 Text("No activity detected. Is the engine running?")
             }

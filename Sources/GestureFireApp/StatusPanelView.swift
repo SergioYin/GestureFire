@@ -7,26 +7,34 @@ struct StatusPanelView: View {
     let event: PipelineEvent
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: event.systemImage)
-                .font(.title2)
-                .foregroundStyle(colorForEvent)
+        HStack(spacing: 0) {
+            // Accent left border
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(colorForEvent)
+                .frame(width: 3)
+                .padding(.vertical, Spacing.sm)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(titleText)
-                    .font(.system(.body, weight: .semibold))
-                if let subtitle = subtitleText {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            HStack(spacing: Spacing.md) {
+                Image(systemName: event.systemImage)
+                    .font(.title)
+                    .foregroundStyle(colorForEvent)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(titleText)
+                        .font(.headline)
+                    if let subtitle = subtitleText {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-            }
 
-            Spacer()
+                Spacer()
+            }
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var titleText: String {
