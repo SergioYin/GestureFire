@@ -7,14 +7,16 @@ struct MenuBarView: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        // State display
+        // Consolidated status line
         HStack(spacing: 4) {
             Image(systemName: coordinator.engineState.systemImage)
-            Text(coordinator.engineState.displayLabel)
+            Text(statusText)
         }
         .font(.caption)
 
-        // Toggle button — label reflects current state
+        Divider()
+
+        // Single toggle button
         switch coordinator.engineState {
         case .disabled, .failed:
             Button("Enable") { coordinator.start() }
@@ -32,26 +34,8 @@ struct MenuBarView: View {
             Button("Retry") { coordinator.retry() }
         }
         if case .needsPermission = coordinator.engineState {
-            Button("Retry (after granting permission)") { coordinator.retry() }
+            Button("Retry") { coordinator.retry() }
         }
-
-        Divider()
-
-        // Last pipeline event
-        if let event = coordinator.lastPipelineEvent {
-            HStack(spacing: 4) {
-                Image(systemName: event.systemImage)
-                Text(event.displayDescription)
-            }
-            .font(.caption)
-        }
-
-        if let last = coordinator.lastGesture {
-            Text("Last: \(last.displayName)")
-                .font(.caption)
-        }
-        Text("Gestures: \(coordinator.gestureCount)")
-            .font(.caption)
 
         Divider()
 
@@ -61,12 +45,7 @@ struct MenuBarView: View {
         }
         .keyboardShortcut(",")
 
-        Button("Diagnostics...") {
-            openWindow(id: "diagnostics")
-            NSApp.activate(ignoringOtherApps: true)
-        }
-
-        Button("Setup Wizard...") {
+        Button("Reconfigure Gestures...") {
             coordinator.beginOnboarding()
             OnboardingWindowController.shared.showDeferred(coordinator: coordinator)
         }
@@ -77,5 +56,15 @@ struct MenuBarView: View {
             NSApplication.shared.terminate(nil)
         }
         .keyboardShortcut("q")
+    }
+
+    private var statusText: String {
+        switch coordinator.engineState {
+        case .running:
+            let count = coordinator.gestureCount
+            return count > 0 ? "\(coordinator.engineState.displayLabel) · \(count) gestures" : coordinator.engineState.displayLabel
+        default:
+            return coordinator.engineState.displayLabel
+        }
     }
 }

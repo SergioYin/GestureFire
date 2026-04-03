@@ -2,7 +2,7 @@ import GestureFireEngine
 import GestureFireTypes
 import SwiftUI
 
-struct GeneralSettingsView: View {
+struct FeedbackSettingsView: View {
     let coordinator: AppCoordinator
 
     @State private var launchAtLoginError: String?
@@ -16,7 +16,7 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Sound Feedback") {
+            Section("Recognition Feedback") {
                 Toggle("Play sound on gesture recognition", isOn: Binding(
                     get: { config.soundEnabled },
                     set: { newValue in
@@ -26,26 +26,25 @@ struct GeneralSettingsView: View {
                 ))
 
                 if config.soundEnabled {
-                    HStack {
-                        Text("Volume")
-                        Slider(
-                            value: Binding(
-                                get: { config.soundVolume },
-                                set: { newValue in
-                                    coordinator.configStore.update { $0.soundVolume = newValue }
-                                    coordinator.soundFeedback.update(from: coordinator.configStore.config)
-                                }
-                            ),
-                            in: 0...1
-                        )
-                        Text("\(Int(config.soundVolume * 100))%")
-                            .frame(width: 40, alignment: .trailing)
-                            .monospacedDigit()
+                    LabeledContent("Volume") {
+                        HStack {
+                            Slider(
+                                value: Binding(
+                                    get: { config.soundVolume },
+                                    set: { newValue in
+                                        coordinator.configStore.update { $0.soundVolume = newValue }
+                                        coordinator.soundFeedback.update(from: coordinator.configStore.config)
+                                    }
+                                ),
+                                in: 0...1
+                            )
+                            Text("\(Int(config.soundVolume * 100))%")
+                                .frame(width: 40, alignment: .trailing)
+                                .monospacedDigit()
+                        }
                     }
                 }
-            }
 
-            Section("Status Panel") {
                 Toggle("Show floating panel on gesture recognition", isOn: Binding(
                     get: { config.statusPanelEnabled },
                     set: { newValue in

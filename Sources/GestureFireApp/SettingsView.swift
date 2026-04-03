@@ -8,17 +8,20 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            GeneralSettingsView(coordinator: coordinator)
-                .tabItem { Label("General", systemImage: "gear") }
+            FeedbackSettingsView(coordinator: coordinator)
+                .tabItem { Label("Feedback", systemImage: "speaker.wave.2") }
 
             GestureMappingView(coordinator: coordinator)
                 .tabItem { Label("Gestures", systemImage: "hand.tap") }
 
-            SensitivityView(coordinator: coordinator)
-                .tabItem { Label("Sensitivity", systemImage: "slider.horizontal.3") }
+            AdvancedSettingsView(coordinator: coordinator)
+                .tabItem { Label("Advanced", systemImage: "slider.horizontal.3") }
 
             LogViewerView(coordinator: coordinator)
                 .tabItem { Label("Logs", systemImage: "clock") }
+
+            StatusSettingsView(coordinator: coordinator)
+                .tabItem { Label("Status", systemImage: "stethoscope") }
         }
         .padding()
     }
@@ -31,10 +34,12 @@ struct GestureMappingView: View {
     var body: some View {
         Form {
             Section("TipTap Gestures") {
+                Text("Format: Modifier+Key, e.g. cmd+left, ctrl+shift+t")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 ForEach(GestureType.allCases, id: \.self) { gesture in
-                    HStack {
-                        Text(gesture.displayName)
-                            .frame(width: 120, alignment: .leading)
+                    LabeledContent(gesture.displayName) {
                         ShortcutField(
                             shortcut: coordinator.configStore.config.shortcut(for: gesture),
                             onChange: { newShortcut in
@@ -49,12 +54,6 @@ struct GestureMappingView: View {
                         )
                     }
                 }
-            }
-
-            Section {
-                Text("Tip: Press Enter after typing a shortcut to save it.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
         }
     }
@@ -89,6 +88,14 @@ struct ShortcutField: View {
                 .buttonStyle(.plain)
             }
         }
+        .overlay(alignment: .bottom) {
+            if parseError {
+                Text("Invalid format. Use Modifier+Key, e.g. cmd+left")
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+                    .offset(y: 16)
+            }
+        }
     }
 
     private func saveShortcut() {
@@ -102,63 +109,6 @@ struct ShortcutField: View {
             parseError = false
         } else {
             parseError = true
-        }
-    }
-}
-
-// MARK: - Sensitivity
-
-struct SensitivityView: View {
-    let coordinator: AppCoordinator
-
-    private var sensitivity: SensitivityConfig {
-        coordinator.configStore.config.sensitivity
-    }
-
-    var body: some View {
-        Form {
-            Section("TipTap Parameters") {
-                parameterRow(.holdThresholdMs, label: "Hold Threshold", unit: "ms")
-                parameterRow(.tapMaxDurationMs, label: "Tap Max Duration", unit: "ms")
-                parameterRow(.movementTolerance, label: "Movement Tolerance", unit: "")
-                parameterRow(.debounceCooldownMs, label: "Cooldown", unit: "ms")
-                parameterRow(.directionAngleTolerance, label: "Direction Angle Tolerance", unit: "°")
-            }
-
-            Section {
-                Button("Reset to Defaults") {
-                    coordinator.configStore.update { config in
-                        config.sensitivity = .defaults
-                    }
-                    Task { await coordinator.reloadSensitivity() }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func parameterRow(_ param: SensitivityConfig.Parameter, label: String, unit: String) -> some View {
-        let bounds = ParameterBounds.bounds(for: param)
-        let value = sensitivity.value(for: param)
-
-        HStack {
-            Text(label)
-                .frame(width: 180, alignment: .leading)
-            Slider(
-                value: Binding(
-                    get: { value },
-                    set: { newValue in
-                        coordinator.configStore.update { config in
-                            config.sensitivity = config.sensitivity.withValue(newValue, for: param)
-                        }
-                        Task { await coordinator.reloadSensitivity() }
-                    }
-                ),
-                in: bounds.min...bounds.max
-            )
-            Text("\(value, specifier: "%.1f")\(unit)")
-                .frame(width: 80, alignment: .trailing)
-                .monospacedDigit()
         }
     }
 }

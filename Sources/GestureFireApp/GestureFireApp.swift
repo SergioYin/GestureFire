@@ -96,9 +96,17 @@ struct GestureFireApp: App {
     private var coordinator: AppCoordinator { sharedCoordinator }
 
     private var menuBarTitle: String {
-        let state = coordinator.engineState.displayLabel
-        let count = coordinator.gestureCount
-        return count > 0 ? "GestureFire (\(state) · \(count))" : "GestureFire (\(state))"
+        switch coordinator.engineState {
+        case .running:
+            let count = coordinator.gestureCount
+            return count > 0 ? "GF · \(count)" : "GF"
+        case .disabled:
+            return "GF · Off"
+        case .needsPermission, .failed:
+            return "GF ⚠"
+        case .starting:
+            return "GF ..."
+        }
     }
 
     var body: some Scene {
@@ -109,12 +117,7 @@ struct GestureFireApp: App {
         Window("GestureFire Settings", id: "settings") {
             SettingsView(coordinator: coordinator)
         }
-        .defaultSize(width: 520, height: 500)
-
-        Window("Diagnostics", id: "diagnostics") {
-            DiagnosticView(coordinator: coordinator)
-        }
-        .defaultSize(width: 400, height: 300)
+        .defaultSize(width: 560, height: 520)
     }
 }
 

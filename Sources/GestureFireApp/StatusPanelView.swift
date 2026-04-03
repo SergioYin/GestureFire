@@ -54,9 +54,9 @@ struct StatusPanelView: View {
     private var subtitleText: String? {
         switch event {
         case .shortcutFired:
-            return "Shortcut fired"
+            return "Shortcut sent"
         case .recognized:
-            return "No shortcut mapped"
+            return "Recognized (no shortcut)"
         default:
             return nil
         }
