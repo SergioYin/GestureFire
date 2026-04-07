@@ -9,20 +9,29 @@ import SwiftUI
 @Observable
 final class StatusPanelViewModel {
     var event: PipelineEvent?
-    var isVisible: Bool = false
+}
+
+/// NSPanel subclass that never becomes key or main window.
+/// Prevents all window-activation-related system sounds.
+final class SilentPanel: NSPanel {
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
 }
 
 /// Manages a floating, non-activating NSPanel for gesture feedback.
 /// The panel appears briefly on recognition, then auto-dismisses.
 ///
-/// Design: the NSHostingView and SwiftUI view are created ONCE.
-/// Content updates flow through `StatusPanelViewModel` — no view replacement,
-/// no repeated `orderFrontRegardless()` calls, eliminating macOS system sounds.
+/// Sound-suppression design (validated Phase 2.5, hardened Phase 2.6):
+/// 1. SilentPanel subclass blocks key/main promotion — no activation sounds
+/// 2. Panel is ordered front ONCE at creation, then stays in window list forever
+/// 3. Show/hide uses only alphaValue — no orderFront/orderOut after creation
+/// 4. NSHostingView created once, content updates via @Observable view model
+/// 5. animationBehavior = .none suppresses window appearance animation sounds
 @MainActor
 final class StatusPanelController {
     static let shared = StatusPanelController()
 
-    private var panel: NSPanel?
+    private var panel: SilentPanel?
     private var viewModel = StatusPanelViewModel()
     private var dismissTask: Task<Void, Never>?
     private var dismissDelay: Duration = .seconds(3)
@@ -35,7 +44,6 @@ final class StatusPanelController {
 
         // Update the view model — SwiftUI reacts without replacing the hosting view
         viewModel.event = event
-        viewModel.isVisible = true
 
         let panel = getOrCreatePanel()
 
@@ -51,11 +59,8 @@ final class StatusPanelController {
             hasPositioned = true
         }
 
-        // Show panel — use alphaValue to avoid repeated orderFrontRegardless calls
-        if !panel.isVisible {
-            panel.alphaValue = 0
-            panel.orderFrontRegardless()
-        }
+        // No orderFront here — panel was ordered front at creation time.
+        // Just toggle alpha to make it visible.
         panel.alphaValue = 1
 
         // Schedule auto-dismiss
@@ -72,20 +77,18 @@ final class StatusPanelController {
     func hide() {
         dismissTask?.cancel()
         dismissTask = nil
-        viewModel.isVisible = false
-        // Use alphaValue instead of orderOut to avoid window server sound triggers
+        // Only alpha change — no orderOut, no window server operations.
         panel?.alphaValue = 0
-        panel?.orderOut(nil)
     }
 
-    private func getOrCreatePanel() -> NSPanel {
+    private func getOrCreatePanel() -> SilentPanel {
         if let existing = panel { return existing }
 
-        let p = NSPanel(
+        let p = SilentPanel(
             contentRect: NSRect(x: 0, y: 0, width: 280, height: 60),
             styleMask: [.nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
-            defer: true  // defer creation until actually needed
+            defer: false
         )
         p.isFloatingPanel = true
         p.level = .floating
@@ -94,18 +97,21 @@ final class StatusPanelController {
         p.backgroundColor = .clear
         p.hasShadow = true
         p.isReleasedWhenClosed = false
-        // Non-activating: does not become key or main window
         p.becomesKeyOnlyIfNeeded = true
         p.hidesOnDeactivate = false
         p.titleVisibility = .hidden
         p.titlebarAppearsTransparent = true
-        // Suppress window appearance animation and any associated system sound effects.
         p.animationBehavior = .none
-        p.alphaValue = 0
 
         // Create the hosting view ONCE with the shared view model
         let hostingView = NSHostingView(rootView: StatusPanelContentView(viewModel: viewModel))
         p.contentView = hostingView
+
+        // Order front exactly once, at alpha 0. After this, show/hide
+        // uses only alphaValue — zero window server operations in the
+        // show/hide cycle, which eliminates all system sound triggers.
+        p.alphaValue = 0
+        p.orderFrontRegardless()
 
         self.panel = p
         return p
@@ -118,10 +124,8 @@ private struct StatusPanelContentView: View {
     @Bindable var viewModel: StatusPanelViewModel
 
     var body: some View {
-        Group {
-            if let event = viewModel.event {
-                StatusPanelView(event: event)
-            }
+        if let event = viewModel.event {
+            StatusPanelView(event: event)
         }
     }
 }

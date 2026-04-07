@@ -5,25 +5,90 @@ import SwiftUI
 
 struct SettingsView: View {
     let coordinator: AppCoordinator
+    @State private var selectedTab: SettingsTab = .feedback
 
     var body: some View {
-        TabView {
-            FeedbackSettingsView(coordinator: coordinator)
-                .tabItem { Label("Feedback", systemImage: "speaker.wave.2") }
+        VStack(spacing: 0) {
+            // Primary navigation bar — always visible, high contrast
+            HStack(spacing: Spacing.xs) {
+                ForEach(SettingsTab.allCases, id: \.self) { tab in
+                    SettingsTabButton(tab: tab, isSelected: selectedTab == tab) {
+                        selectedTab = tab
+                    }
+                }
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
+            .background(.bar)
 
-            GestureMappingView(coordinator: coordinator)
-                .tabItem { Label("Gestures", systemImage: "hand.tap") }
+            Divider()
 
-            AdvancedSettingsView(coordinator: coordinator)
-                .tabItem { Label("Advanced", systemImage: "slider.horizontal.3") }
-
-            LogViewerView(coordinator: coordinator)
-                .tabItem { Label("Logs", systemImage: "clock") }
-
-            StatusSettingsView(coordinator: coordinator)
-                .tabItem { Label("Status", systemImage: "stethoscope") }
+            // Tab content
+            Group {
+                switch selectedTab {
+                case .feedback:
+                    FeedbackSettingsView(coordinator: coordinator)
+                case .gestures:
+                    GestureMappingView(coordinator: coordinator)
+                case .advanced:
+                    AdvancedSettingsView(coordinator: coordinator)
+                case .logs:
+                    LogViewerView(coordinator: coordinator)
+                case .status:
+                    StatusSettingsView(coordinator: coordinator)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(Spacing.sm)
+    }
+}
+
+// MARK: - Settings Tab
+
+private enum SettingsTab: String, CaseIterable {
+    case feedback, gestures, advanced, logs, status
+
+    var label: String {
+        switch self {
+        case .feedback: "Feedback"
+        case .gestures: "Gestures"
+        case .advanced: "Advanced"
+        case .logs: "Logs"
+        case .status: "Status"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .feedback: "speaker.wave.2"
+        case .gestures: "hand.tap"
+        case .advanced: "slider.horizontal.3"
+        case .logs: "clock"
+        case .status: "stethoscope"
+        }
+    }
+}
+
+private struct SettingsTabButton: View {
+    let tab: SettingsTab
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(tab.label, systemImage: tab.icon)
+                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.sm)
+                .background(
+                    isSelected
+                        ? Color.accentColor.opacity(0.12)
+                        : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 6)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 

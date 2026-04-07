@@ -12,28 +12,37 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Fixed top: step indicator
             StepIndicator(currentStep: coordinator.currentStep)
                 .padding(Spacing.lg)
 
             Divider()
 
-            Group {
-                switch coordinator.currentStep {
-                case .permission:
-                    PermissionStepView(coordinator: coordinator)
-                case .preset:
-                    PresetStepView(coordinator: coordinator)
-                case .practice:
-                    PracticeStepView(coordinator: coordinator, appCoordinator: appCoordinator)
-                case .confirm:
-                    ConfirmStepView(coordinator: coordinator)
+            // Fixed center: step content in a stable frame
+            // Each step is wrapped in ScrollView so content can grow without
+            // pushing the navigation bar off screen or causing layout jumps.
+            ScrollView {
+                Group {
+                    switch coordinator.currentStep {
+                    case .permission:
+                        PermissionStepView(coordinator: coordinator)
+                    case .preset:
+                        PresetStepView(coordinator: coordinator)
+                    case .practice:
+                        PracticeStepView(coordinator: coordinator, appCoordinator: appCoordinator)
+                    case .confirm:
+                        ConfirmStepView(coordinator: coordinator)
+                    }
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, Spacing.xl)
+                .padding(.vertical, Spacing.lg)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(Spacing.xl)
 
             Divider()
 
+            // Fixed bottom: navigation bar
             NavigationBar(coordinator: coordinator, appCoordinator: appCoordinator, onDismiss: onDismiss)
                 .padding(Spacing.lg)
         }
@@ -118,28 +127,23 @@ private struct PermissionStepView: View {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: 400)
 
-            switch coordinator.permissionState {
-            case .unknown, .denied:
-                VStack(spacing: Spacing.sm) {
+            // Fixed-height action area prevents layout jumping between states
+            VStack(spacing: Spacing.sm) {
+                switch coordinator.permissionState {
+                case .unknown, .denied:
                     Button("Open System Settings") {
                         coordinator.requestPermission()
                     }
                     .controlSize(.large)
                     .buttonStyle(.borderedProminent)
 
-                    Text("You'll be asked to allow GestureFire in Accessibility settings.")
+                    Text(coordinator.permissionState == .denied
+                         ? "Permission was denied. Click above to try again."
+                         : "You'll be asked to allow GestureFire in Accessibility settings.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                        .foregroundStyle(coordinator.permissionState == .denied ? .orange : .secondary)
 
-                if coordinator.permissionState == .denied {
-                    Text("Permission was denied. Click above to try again.")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-
-            case .requested:
-                VStack(spacing: Spacing.sm) {
+                case .requested:
                     ProgressView()
                     Text("Waiting for permission...")
                         .font(.caption)
@@ -153,12 +157,13 @@ private struct PermissionStepView: View {
                     }
                     .font(.caption)
                     .padding(.top, Spacing.xs)
-                }
 
-            case .granted:
-                StatusBadge(title: "Permission Granted", systemImage: "checkmark.circle.fill", color: .green)
-                    .font(.title3)
+                case .granted:
+                    StatusBadge(title: "Permission Granted", systemImage: "checkmark.circle.fill", color: .green)
+                        .font(.title3)
+                }
             }
+            .frame(minHeight: 80)
         }
     }
 }
@@ -271,7 +276,7 @@ private struct PracticeStepView: View {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: 400)
 
-            // Calibration grid inside a card
+            // Calibration grid inside a card — always visible, stable structure
             VStack(spacing: Spacing.sm) {
                 ForEach(GestureType.allCases, id: \.self) { gesture in
                     CalibrationRow(
@@ -285,38 +290,37 @@ private struct PracticeStepView: View {
             .padding(Spacing.lg)
             .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
 
-            if coordinator.isCalibrating {
-                if let current = coordinator.currentCalibrationGesture {
-                    Text("Try: \(current.displayName)")
+            // Fixed-height action area — always occupies space to prevent jumping
+            VStack(spacing: Spacing.sm) {
+                if coordinator.calibrationPassed {
+                    StatusBadge(title: "All gestures verified!", systemImage: "checkmark.circle.fill", color: .green)
+                } else if coordinator.isCalibrating {
+                    Text("Try: \(coordinator.currentCalibrationGesture?.displayName ?? "...")")
                         .font(.headline)
                 } else {
-                    Text(" ")
-                        .font(.headline)
+                    Button("Start Gesture Test") {
+                        lastSeenGestureCount = appCoordinator.gestureCount
+                        coordinator.startCalibration()
+                    }
+                    .controlSize(.large)
+                    .buttonStyle(.borderedProminent)
                 }
-            } else if !coordinator.calibrationPassed {
-                Button("Start Gesture Test") {
-                    lastSeenGestureCount = appCoordinator.gestureCount
-                    coordinator.startCalibration()
+
+                // Secondary info — always reserve the line, use opacity to show/hide
+                Group {
+                    if let error = coordinator.lastSampleSaveError {
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                    } else if !coordinator.recordedSampleURLs.isEmpty {
+                        Text("\(coordinator.recordedSampleURLs.count) sample(s) recorded")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(" ")
+                    }
                 }
-                .controlSize(.large)
-                .buttonStyle(.borderedProminent)
+                .font(.caption)
             }
-
-            if coordinator.calibrationPassed {
-                StatusBadge(title: "All gestures verified!", systemImage: "checkmark.circle.fill", color: .green)
-            }
-
-            if let error = coordinator.lastSampleSaveError {
-                Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
-
-            if !coordinator.recordedSampleURLs.isEmpty {
-                Text("\(coordinator.recordedSampleURLs.count) sample(s) recorded")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            .frame(minHeight: 60)
         }
         .onChange(of: appCoordinator.gestureCount) { _, newCount in
             guard coordinator.isCalibrating,
@@ -449,11 +453,12 @@ private struct NavigationBar: View {
 
     var body: some View {
         HStack {
-            if coordinator.currentStep != .permission {
-                Button("Back") {
-                    coordinator.goBack()
-                }
+            // Back button — always present but hidden on first step to prevent layout shift
+            Button("Back") {
+                coordinator.goBack()
             }
+            .opacity(coordinator.currentStep != .permission ? 1 : 0)
+            .disabled(coordinator.currentStep == .permission)
 
             Spacer()
 
@@ -477,12 +482,12 @@ private struct NavigationBar: View {
                 }
                 .help("You can test gestures later from the menu bar")
 
-                if coordinator.calibrationPassed || !coordinator.isCalibrating {
-                    Button("Next") {
-                        coordinator.finishCalibration()
-                        coordinator.advanceStep()
-                    }
+                Button("Next") {
+                    coordinator.finishCalibration()
+                    coordinator.advanceStep()
                 }
+                .opacity(coordinator.calibrationPassed || !coordinator.isCalibrating ? 1 : 0)
+                .disabled(!(coordinator.calibrationPassed || !coordinator.isCalibrating))
 
             case .confirm:
                 Button("Start GestureFire") {
