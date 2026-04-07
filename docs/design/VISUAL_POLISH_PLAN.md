@@ -1,8 +1,28 @@
 # Visual Polish Plan
 
 > Created: 2026-04-03
-> Status: Draft — awaiting review before implementation
+> Status: **Implemented as Phase 2.6 (2026-04-08)** — see `docs/phases/PHASE-2.6.md` for spec and retrospective
 > Prerequisite: Phase 2.5 (structural polish) completed
+
+## Completion Status (2026-04-08)
+
+All sections of this plan were implemented in Phase 2.6, with the following notes:
+
+| Plan Section | Status | Notes |
+|--------------|--------|-------|
+| 4.1 DesignSystem.swift | ✅ Done | `Spacing`, `SettingsCard`, `StatusBadge` — minimal, no speculative abstractions |
+| 4.2 Feedback tab | ✅ Done | `.formStyle(.grouped)` used instead of ScrollView (safer, same visual result) |
+| 4.3 Gestures tab | ⚠️ Partial | Grouped-form card styling done. ShortcutField pill restyle deferred to Phase 3 (changes interaction affordance). |
+| 4.4 Advanced tab | ✅ Done | Value right-aligned in `.title3.monospacedDigit()`, accent-tinted slider |
+| 4.5 Status tab | ✅ Done | Hero engine state card, console-style recent events, SettingsCard wrappers |
+| 4.6 Onboarding | ✅ Done | Plus stability hardening pass for conditional layout jumping |
+| 4.7 Status Panel | ⚠️ Modified | `.thickMaterial` reverted to `.ultraThinMaterial` after beep investigation. Other changes (accent border, `.title` icon, `.headline` title) kept. |
+| 4.8 Log Viewer | ⚠️ Minimal | Only spacing constants applied. Alternating row tint not achievable in `List` without extra complexity. Deferred to Phase 3. |
+
+**Additional changes not in original plan (hardening pass):**
+- Settings: replaced native `TabView` with custom tab bar for stronger navigation prominence
+- Onboarding: `ScrollView` wrapper + fixed-height action areas to prevent layout jumping
+- Status panel: `SilentPanel` subclass + single-orderFront design for defensive hardening
 
 ## 1. Why the Interface Still Looks Rough
 

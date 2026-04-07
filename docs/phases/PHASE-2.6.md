@@ -158,34 +158,58 @@ Only the Status tab converts to `ScrollView`. All others keep `Form` and apply v
 
 | Metric | Value |
 |--------|-------|
-| Commits | 1 (all V1-V5 workstreams in one commit) |
-| Source files (new/modified) | 1 new (`DesignSystem.swift`), 7 modified |
+| Commits | 3 (implementation + docs + hardening) |
+| Source files (new/modified) | 1 new (`DesignSystem.swift`), 8 modified |
 | Test files (new/modified) | 0 — pure visual, no behavior changes |
-| Source LOC delta | +141 net (+366 insertions, -225 deletions) |
+| Source LOC delta | ~+200 net |
 | Test LOC delta | 0 |
+| Tests | 153 in 30 suites — zero regression |
 
 ### Bugs Found
 
-None. Pure visual changes with no behavior impact.
+#### P0 — "System beep on every gesture" (user-reported regression, NOT a Phase 2.6 regression)
+
+- **Initial misdiagnosis**: Assumed regression in `StatusPanelController.show()`. Spent two iterations hardening the panel show/hide path (`SilentPanel` subclass, single orderFront at creation, alpha-only cycle, `.thickMaterial` → `.ultraThinMaterial` revert).
+- **Final root cause**: The beep is the standard macOS "funk" / invalid-key sound produced by the **target application** when `KeyboardSimulator` posts a `CGEvent` for a shortcut the frontmost app does not handle. It is OS-level behavior, not a GestureFire bug, and has nothing to do with panel/window operations.
+- **How confirmed**: User reproduced the sound with the status panel disabled, definitively ruling out panel-related causes.
+- **Resolution**: No code fix for the symptom itself — inherent to CGEvent shortcut simulation. Panel hardening retained as a net improvement to robustness. Phase 4's Smart Tuning (`FeedbackCorrelator`) will be the natural place to detect unused mapped shortcuts and warn the user.
+- **Lesson for future debugging**: For "sound on X shown" symptoms, first step must be "reproduce with X disabled."
+
+#### P1 — Onboarding wizard layout jumping
+
+- **Root cause**: Conditional `if/else` blocks inserted/removed view subtrees, causing SwiftUI to rebuild layouts. Nav bar Back button conditional insertion shifted the Spacer. Practice step had 4 independent conditional sections.
+- **Fix**: `ScrollView` wrapper for stable content frame; fixed-height action areas per step; `opacity(0)` + `disabled` for nav buttons instead of conditional removal; merged Practice step sections into one stable `VStack(minHeight: 60)` with a reserved secondary-info line.
+
+#### P1 — Settings tab navigation not prominent
+
+- **Root cause**: macOS native `TabView` with `.tabItem` renders as low-weight toolbar icons that blend into window chrome. Removing outer padding was insufficient — the native style is inherently subdued.
+- **Fix**: Replaced `TabView` with a custom top navigation bar: `SettingsTabButton` components inside a `.bar`-backed `HStack` with a `Divider` below. Selected state uses accent-colored foreground + `.semibold` weight + `opacity(0.12)` tinted background.
 
 ### What Went Well
 
-- **Constraint #2 validated**: Only Status tab converted from `Form → ScrollView`. All other tabs kept `Form` with `.formStyle(.grouped)` which provides native card grouping without losing keyboard/accessibility support.
-- **Constraint #3 held**: `DesignSystem.swift` contains only 3 components (`Spacing`, `SettingsCard`, `StatusBadge`), all used 2+ times. No speculative abstractions.
-- **Zero test regression**: 153 tests in 30 suites, all green, no modifications needed.
-- **`.formStyle(.grouped)`**: Discovered this gives Form-based tabs the visual card grouping we wanted without losing any Form behavior. Avoided risky ScrollView conversions.
+- **Constraint #2 validated**: Only Status tab converted from `Form → ScrollView`. All other tabs kept `Form` with `.formStyle(.grouped)`.
+- **Constraint #3 held**: `DesignSystem.swift` contains only 3 components, all used 2+ times. No speculative abstractions.
+- **Zero test regression**: 153 tests, all green across all iterations.
+- **Hardening was additive**: The `SilentPanel` + single-orderFront + alpha-only design is retained as genuine improvement even though the beep diagnosis was wrong.
+- **Custom tab bar replaced TabView cleanly**: No behavior loss, significantly stronger visual hierarchy.
 
 ### What Needs Improvement
 
-- **Tab/VoiceOver verification pending**: Status tab ScrollView conversion needs manual verification per spec. If Tab key navigation or VoiceOver breaks, revert to Form.
-- **LogViewerView minimal changes**: Alternating row tint was not achievable within `List` constraints without adding complexity. Only spacing constants applied.
+- **Debugging discipline**: Should have isolated the beep symptom first (reproduce with panel OFF) before touching any panel code.
+- **Custom tab bar loses `Cmd+1..5` tab cycling**: Native `TabView` supports this out of the box. Acceptable regression for now, add back via `.keyboardShortcut` in Phase 3.
+- **LogViewerView minimal changes**: Alternating row tint was not achievable inside `List` without extra complexity. Spacing constants applied only.
+- **Tab/VoiceOver verification pending**: Both the Status tab ScrollView and the custom settings tab bar need manual accessibility verification.
 
 ## Next-Phase Carry-Over
 
 | Item | Target Phase | Notes |
 |------|-------------|-------|
-| ShortcutField pill restyle | Phase 3 | Changes interaction affordance, out of visual-only scope |
-| Slider endpoint labels | Phase 3 | New visual elements |
-| Step transition animation | Phase 3 | Behavior change |
-| Card hover effects | Phase 5 | New interaction |
-| Tab/VoiceOver verification | Pre-Phase 3 | Manual check before adding new gesture UI |
+| Unused-shortcut detection / warning | Phase 4 | Natural home in `FeedbackCorrelator`. Detects shortcuts that repeatedly produce no app response (the "funk" beep condition) and surfaces a warning so users can remap. |
+| Settings tab bar `Cmd+1..5` keyboard cycling | Phase 3 | Add `.keyboardShortcut` modifiers to each `SettingsTabButton`. |
+| Tab/VoiceOver manual verification (Status tab + custom tab bar) | Phase 3 | Must verify before adding new gesture UI that inherits the same patterns. |
+| ShortcutField pill restyle | Phase 3 | Changes interaction affordance, out of visual-only scope. |
+| Slider endpoint labels | Phase 3 | New visual elements. |
+| Step transition animation in onboarding | Phase 3 | Behavior change. |
+| LogViewerView alternating row tint | Phase 3 | Requires custom row rendering outside `List`. |
+| Card hover effects | Phase 5 | New interaction pattern. |
+| Custom dark/light specialization | Phase 5 | Low priority polish. |

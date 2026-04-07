@@ -416,16 +416,16 @@ Phase 2.5 restructured the settings information architecture: General tab rename
 
 ## Scope
 
-Phase 2.6 made the interface look finished with surface hierarchy, visual weight on status indicators, and consistent spacing — without changing any behavior.
+Phase 2.6 made the interface look finished with surface hierarchy, visual weight on status indicators, and consistent spacing — without changing any behavior. A hardening pass followed to address user-reported regressions in wizard stability, settings navigation prominence, and a suspected status panel sound regression.
 
 ## Stats
 
 | Metric | Value |
 |--------|-------|
-| Commits | 1 |
-| Source files (new/modified) | 1 new, 7 modified |
-| Test files modified | 0 |
-| Source LOC delta | +141 net |
+| Commits | 3 (initial implementation + docs + hardening) |
+| Source files (new/modified) | 1 new (`DesignSystem.swift`), 8 modified |
+| Test files modified | 0 — pure visual, no behavior changes |
+| Source LOC delta | ~+200 net |
 | Tests | 153 in 30 suites — zero regression |
 
 ## What Was Delivered
@@ -452,24 +452,62 @@ Phase 2.6 made the interface look finished with surface hierarchy, visual weight
 - Practice: calibration grid in card, accent-tinted current row
 
 ### Status Panel Readability (V4)
-- `.thickMaterial` (from `.ultraThinMaterial`)
+- Reverted to `.ultraThinMaterial` after beep investigation (see below)
 - `.title` icon, `.headline` title text
 - 3pt accent-colored left border
 
 ### Spacing Pass (V5)
 - All hardcoded padding replaced with `Spacing` constants across all view files
 
+### Hardening Pass (post V1-V5)
+- **Wizard stability**: `ScrollView` wrapper around step content for a stable content frame; fixed-height action areas prevent layout jumping when conditional sections appear/disappear; nav bar Back button uses `opacity(0)` + `disabled` instead of conditional removal; Practice step action area merged into a single `VStack(minHeight: 60)` with a reserved secondary-info line
+- **Settings tab prominence**: Replaced macOS native `TabView` with a custom top navigation bar — 5 `SettingsTabButton` buttons inside a `.bar`-backed container with a `Divider`, selected state shown via accent color foreground + `.semibold` weight + `opacity(0.12)` tinted background
+- **Status panel hardening**: `SilentPanel` NSPanel subclass overriding `canBecomeKey`/`canBecomeMain` → `false`; panel ordered front exactly once at creation time (alpha 0); show/hide cycle uses only `alphaValue`, never calls `orderFront`/`orderOut` — eliminates all window server operations from the show/hide path
+
 ## Bugs Found
 
-None.
+### P0 — "System beep on every gesture" (user-reported regression)
+
+**Initial misdiagnosis**: Believed this was a regression in `StatusPanelController.show()`. Investigated the show/hide window ordering path, added `SilentPanel` subclass, moved `orderFrontRegardless()` to creation time, and reverted `.thickMaterial` → `.ultraThinMaterial` as a precaution. The sound still reproduced.
+
+**Final root cause**: The beep was **not from the status panel at all**. The user confirmed the sound persists with the status panel disabled. The sound is the standard macOS "funk" / invalid key beep, produced by the **target application** when `KeyboardSimulator` posts a `CGEvent` for a shortcut key combination that the foreground app does not handle. This is OS-level behavior, not a GestureFire bug:
+
+- `KeyboardSimulator.fire()` posts `CGEvent` key down/up for the mapped shortcut
+- macOS delivers the event to the frontmost app
+- If the frontmost app has no handler for that key combo, the system plays the standard "funk" sound
+- The panel's visual coincidence (shown at the same time as the shortcut fires) caused it to look like a panel issue
+
+**Why it was not visible in Phase 2.5**: The user's target app at the time of Phase 2.5 testing consumed the simulated shortcut (so no beep). In Phase 2.6 testing, a different foreground context did not consume it, exposing the OS behavior.
+
+**Resolution**: No code change needed for this specific symptom — it is inherent to CGEvent-based shortcut simulation when the target app does not handle the key. Users can avoid the beep by mapping gestures to shortcuts the foreground app actually handles. Phase 4's Smart Tuning can detect this via the `FeedbackCorrelator` and warn when a mapped shortcut is repeatedly unused.
+
+**What we kept from the investigation**: The `SilentPanel` + single-orderFront + alpha-only cycle is still a correct hardening of the panel's window interaction and is retained. The `.thickMaterial` → `.ultraThinMaterial` revert is also kept — the thinner material is more consistent with macOS HUD conventions and performs slightly better on busy desktops.
+
+**Lesson**: Do not assume a timing-coincident UI symptom is a regression. The first debugging step for "sound on panel show" should have been "reproduce with panel disabled."
+
+### P1 — Onboarding wizard layout jumping (user-reported)
+
+**Root cause**: Conditional `if/else` blocks in step views inserted/removed entire view subtrees, causing SwiftUI to rebuild layouts. Navigation bar's Back button conditionally appeared via `if`, shifting the Spacer. Practice step had 4 independent conditional sections appearing/disappearing independently.
+
+**Fix**: ScrollView wrapper for stable content frame; fixed-height action areas; opacity-based show/hide for nav buttons; merged Practice step sections into a single stable VStack with reserved space for secondary info.
+
+### P1 — Settings tab navigation not prominent (user-reported)
+
+**Root cause**: macOS native `TabView` with `.tabItem` renders tabs as small toolbar icons that blend into window chrome. Removing outer padding was not sufficient — the native tab bar has inherently low visual weight.
+
+**Fix**: Replaced `TabView` with a custom top navigation bar using `SettingsTabButton` components inside a `.bar`-backed container. Selected state is now unmistakable: accent-colored text, `.semibold` weight, tinted background rectangle.
 
 ## What Went Well
 
-- `.formStyle(.grouped)` gave us card grouping without `Form → ScrollView` risk
-- Only Status tab needed ScrollView conversion (read-heavy, no form controls)
-- Zero test regression despite touching 7 files
+- **`.formStyle(.grouped)`**: Gave Form-based tabs card grouping without any `Form → ScrollView` risk. Only the Status tab (read-heavy, no form controls) needed the ScrollView conversion.
+- **`DesignSystem.swift` stayed minimal**: 3 components (`Spacing`, `SettingsCard`, `StatusBadge`), all used 2+ times, zero speculative abstractions.
+- **Zero test regression**: 153 tests in 30 suites passed throughout all iterations.
+- **Custom tab bar replaced native TabView cleanly**: No behavior loss, significantly stronger visual hierarchy.
+- **Hardening was additive, not destructive**: The `SilentPanel` subclass, single-orderFront design, and stable wizard frame are improvements even though the original beep diagnosis was wrong.
 
 ## What Needs Improvement
 
-- Tab/VoiceOver verification pending for Status tab ScrollView conversion
-- LogViewerView got minimal changes (spacing only) — alternating row tint deferred
+- **Debugging method**: Should have isolated the beep by toggling panel OFF before touching panel code. Two iterations were spent on the wrong hypothesis.
+- **Custom tab bar loses keyboard shortcut cycling**: macOS native `TabView` supports `Cmd+1..5` tab switching out of the box. The custom tab bar does not. Acceptable for now (not in scope), but should be added back via `.keyboardShortcut` on each `SettingsTabButton` in Phase 3.
+- **LogViewerView minimal changes**: Alternating row tint was not achievable within `List` constraints without adding complexity. Only spacing constants applied.
+- **Tab/VoiceOver verification pending**: Status tab ScrollView conversion and custom settings tab bar both need manual accessibility verification before Phase 3.

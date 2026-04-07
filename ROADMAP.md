@@ -12,7 +12,7 @@
 | 1.5 | Onboarding + Calibration | First-run wizard, sample recording/replay, calibration flow | ✅ Done |
 | 2 | Experience Polish | Sound feedback, status panel, log viewer, launch-at-login | ✅ Done |
 | 2.5 | UI Structure Polish | Settings restructure, menu bar simplification, onboarding copy | ✅ Done |
-| 2.6 | Visual Polish | Design system, surface hierarchy, status weight, spacing | ✅ Done |
+| 2.6 | Visual Polish | Design system, surface hierarchy, status weight, spacing, wizard stability, custom settings tab bar | ✅ Done |
 | 3 | More Gestures | Multi-finger tap, multi-finger swipe, corner tap | ⬜ |
 | 4 | Smart Tuning | Rejection tracking, keyboard correlation, auto-adjust parameters | ⬜ |
 | 5 | Personalization | Profiles, per-app mappings, import/export | ⬜ |
@@ -78,13 +78,15 @@
 
 ## Phase 2.6: Visual Polish ✅
 
-**Goal:** Make the interface look finished with surface hierarchy, visual weight on status indicators, and consistent spacing.
+**Goal:** Make the interface look finished with surface hierarchy, visual weight on status indicators, and consistent spacing — plus a hardening pass for wizard stability and settings tab navigation prominence.
 
-**Delivered:** `DesignSystem.swift` (Spacing grid, SettingsCard, StatusBadge), `.formStyle(.grouped)` on all Form tabs, Status tab hero card with tinted background, onboarding visual lift (32pt pills, 96pt icon circles, accent left border on preset cards), status panel with `.thickMaterial` + `.headline` text + accent border.
+**Delivered:** `DesignSystem.swift` (Spacing grid, SettingsCard, StatusBadge), `.formStyle(.grouped)` on all Form tabs, Status tab hero card with tinted background, onboarding visual lift (32pt pills, 96pt icon circles, accent left border on preset cards), status panel with `.ultraThinMaterial` + `.headline` text + accent border, `SilentPanel` NSPanel subclass with single-orderFront design, custom Settings tab bar replacing native `TabView`, ScrollView-wrapped wizard steps for stable layout.
 
-**Key files:** 42 source files, 24 test files. 1 new file, 7 modified. 153 tests pass.
+**Non-regression clarification:** The "system beep on every gesture" reported during Phase 2.6 is **not** a regression. Root cause: macOS "funk" sound produced by the target app when `KeyboardSimulator` posts a `CGEvent` for a shortcut the foreground app does not handle. Inherent to CGEvent-based shortcut simulation, not a panel/window issue. Detection/warning for unused shortcuts is carried over to Phase 4.
 
-**See:** `docs/phases/PHASE-2.6.md` for spec and retrospective.
+**Key files:** 42 source files, 24 test files. 1 new file, 8 modified. 153 tests pass.
+
+**See:** `docs/phases/PHASE-2.6.md` for spec and retrospective, `docs/PHASE-2.6-ACCEPTANCE.md` for verification checklist.
 
 ---
 
@@ -112,7 +114,13 @@
 | SwiftUI view unit tests | P3 | Consider snapshot testing for gesture-specific UI |
 | LogEntry stable identity (UUID) | P3 | Fix when expanding log viewer |
 | `InMemoryPersistence.Storage @unchecked Sendable` | P3 | Convert to `@MainActor`-constrained class |
-| NSPanel sound (if still present) | P0 | Verify on Phase 3 kickoff — if still audible, escalate |
+| NSPanel sound (if still present) | P0 | Resolved in Phase 2.6 — symptom was CGEvent funk from target app, not panel. No further action. |
+| Settings tab bar `Cmd+1..5` cycling | P2 | Custom tab bar lost native `TabView` keyboard cycling. Add `.keyboardShortcut` to each `SettingsTabButton`. |
+| Tab key / VoiceOver verification (Status tab ScrollView + custom Settings tab bar) | P1 | Manual accessibility pass before shipping new gesture UI that inherits these patterns |
+| ShortcutField pill restyle | P2 | Changes interaction affordance — carried over from Phase 2.6 (visual-only) |
+| Slider endpoint labels | P2 | Carried over from Phase 2.6 |
+| Onboarding step transition animation | P3 | Behavior change — carried over from Phase 2.6 |
+| LogViewerView alternating row tint | P3 | Requires custom row rendering outside `List` — carried over from Phase 2.6 |
 
 ### Verification Criteria
 
@@ -142,6 +150,7 @@
 |------|--------|-------|
 | Sample browser / management UI | Phase 1.5 | Build alongside auto-calibration — browse, delete, export `.gesturesample` files |
 | `GestureFireConfig.version` migration | Phase 2 | Activate if Phase 4 schema changes require explicit migration |
+| Unused-shortcut detection / warning | Phase 2.6 | `FeedbackCorrelator` detects shortcuts that repeatedly produce no app response (the macOS "funk" beep condition) and surfaces a UI warning so users can remap. Root cause of the Phase 2.6 "panel sound" false alarm. |
 
 ### Verification Criteria
 
