@@ -146,11 +146,13 @@
 
 ### Carry-Over from Earlier Phases
 
-| Item | Source | Notes |
-|------|--------|-------|
+All items below target **Phase 4**. The "Originated In" column records where the item first surfaced, not its target phase.
+
+| Item | Originated In | Notes |
+|------|---------------|-------|
 | Sample browser / management UI | Phase 1.5 | Build alongside auto-calibration — browse, delete, export `.gesturesample` files |
 | `GestureFireConfig.version` migration | Phase 2 | Activate if Phase 4 schema changes require explicit migration |
-| Unused-shortcut detection / warning | Phase 2.6 | `FeedbackCorrelator` detects shortcuts that repeatedly produce no app response (the macOS "funk" beep condition) and surfaces a UI warning so users can remap. Root cause of the Phase 2.6 "panel sound" false alarm. |
+| Unused-shortcut detection / warning | Phase 2.6 (investigation) | `FeedbackCorrelator` detects shortcuts that repeatedly produce no app response (the macOS "funk" beep condition) and surfaces a UI warning so users can remap. Root cause of the Phase 2.6 "panel sound" false alarm. |
 
 ### Verification Criteria
 
