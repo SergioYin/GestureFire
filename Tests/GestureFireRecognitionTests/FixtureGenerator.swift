@@ -1,0 +1,67 @@
+import Foundation
+import Testing
+import GestureFireTypes
+
+/// Env-gated generator for checked-in replay fixtures.
+///
+/// Writes `.gesturesample` files to the source directory (not the build bundle)
+/// so the committed assets stay in sync with the current `Fixtures.*Sequence(...)`
+/// factories. To run:
+///
+///     GFIRE_GENERATE_FIXTURES=1 ./scripts/test.sh --filter FixtureGenerator
+///
+/// Without the env var set, every test in this suite returns immediately and
+/// passes. This keeps the generator dormant on normal test runs.
+@Suite("Fixture generator (env-gated)")
+struct FixtureGenerator {
+    private static var isEnabled: Bool {
+        ProcessInfo.processInfo.environment["GFIRE_GENERATE_FIXTURES"] == "1"
+    }
+
+    /// Source directory for replay fixtures. Resolved from `#filePath` so
+    /// regeneration writes next to the committed files regardless of the
+    /// current working directory.
+    private static func fixtureDir(_ subdir: String, file: String = #filePath) -> URL {
+        URL(fileURLWithPath: file)
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/samples/\(subdir)", isDirectory: true)
+    }
+
+    private static func write(_ sample: GestureSample, to dir: URL, name: String) throws {
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("\(name).gesturesample")
+        let data = try sample.toJSONL()
+        try data.write(to: url, options: .atomic)
+    }
+
+    // MARK: - TipTap
+
+    @Test("Generate TipTap fixtures")
+    func generateTipTap() throws {
+        guard Self.isEnabled else { return }
+
+        let dir = Self.fixtureDir("tiptap")
+        let sensitivity = SensitivityConfig.defaults
+        let recordedAt = Date(timeIntervalSinceReferenceDate: 0)
+
+        // Each entry: (name, expected gesture, hold position, tap position)
+        let variants: [(String, GestureType, SIMD2<Float>, SIMD2<Float>)] = [
+            ("tiptap-left",  .tipTapLeft,  SIMD2(0.7, 0.5), SIMD2(0.3, 0.5)),
+            ("tiptap-right", .tipTapRight, SIMD2(0.3, 0.5), SIMD2(0.7, 0.5)),
+            ("tiptap-up",    .tipTapUp,    SIMD2(0.5, 0.3), SIMD2(0.5, 0.7)),
+            ("tiptap-down",  .tipTapDown,  SIMD2(0.5, 0.7), SIMD2(0.5, 0.3)),
+        ]
+
+        for (name, gesture, holdPos, tapPos) in variants {
+            let frames = Fixtures.tipTapSequence(holdPos: holdPos, tapPos: tapPos)
+            let header = SampleHeader(
+                gestureType: gesture,
+                sensitivity: sensitivity,
+                recordedAt: recordedAt,
+                frameCount: frames.count
+            )
+            let sample = GestureSample(header: header, frames: frames)
+            try Self.write(sample, to: dir, name: name)
+        }
+    }
+}

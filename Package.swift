@@ -65,7 +65,10 @@ let package = Package(
         .testTarget(
             name: "GestureFireRecognitionTests",
             dependencies: ["GestureFireRecognition", "GestureFireTypes"],
-            path: "Tests/GestureFireRecognitionTests"
+            path: "Tests/GestureFireRecognitionTests",
+            resources: [
+                .copy("Fixtures/samples"),
+            ]
         ),
         .testTarget(
             name: "GestureFireShortcutsTests",
