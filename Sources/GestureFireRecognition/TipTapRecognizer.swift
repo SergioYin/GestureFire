@@ -102,12 +102,32 @@ public struct TipTapRecognizer: GestureRecognizer {
                     // Reject two-finger swipes: hold and tap must be far enough apart
                     guard simd_distance(holdFinger.startPosition, lifted.finger.startPosition) >= proximityThreshold else { continue }
 
-                    // Success — compute direction
-                    let gesture = computeDirection(
-                        holdPos: holdFinger.startPosition,
-                        tapPos: lifted.finger.startPosition
-                    )
+                    // Direction classification with angle-tolerance gate
+                    let vector = lifted.finger.startPosition - holdFinger.startPosition
+                    guard let classification = Geometry.nearestCardinal(of: vector) else {
+                        // Zero displacement — treat as ambiguous and reject.
+                        state = .cooldown(until: now.addingTimeInterval(cooldownSec))
+                        return .rejected([RejectionReason(
+                            recognizer: "TipTap",
+                            parameter: "directionAngleTolerance",
+                            threshold: sensitivity.directionAngleTolerance,
+                            actual: 90.0,
+                            label: "directionAmbiguous"
+                        )])
+                    }
 
+                    if classification.angleDegrees > sensitivity.directionAngleTolerance {
+                        state = .cooldown(until: now.addingTimeInterval(cooldownSec))
+                        return .rejected([RejectionReason(
+                            recognizer: "TipTap",
+                            parameter: "directionAngleTolerance",
+                            threshold: sensitivity.directionAngleTolerance,
+                            actual: classification.angleDegrees,
+                            label: "directionAmbiguous"
+                        )])
+                    }
+
+                    let gesture = gestureType(for: classification.cardinal)
                     state = .cooldown(until: now.addingTimeInterval(cooldownSec))
                     return .recognized(gesture)
                 }
@@ -141,15 +161,12 @@ public struct TipTapRecognizer: GestureRecognizer {
 
     // MARK: - Direction computation
 
-    private func computeDirection(holdPos: SIMD2<Float>, tapPos: SIMD2<Float>) -> GestureType {
-        let dx = tapPos.x - holdPos.x
-        let dy = tapPos.y - holdPos.y
-
-        if abs(dx) > abs(dy) {
-            return dx > 0 ? .tipTapRight : .tipTapLeft
-        } else {
-            // Positive Y = up in trackpad coordinates
-            return dy > 0 ? .tipTapUp : .tipTapDown
+    private func gestureType(for cardinal: Cardinal) -> GestureType {
+        switch cardinal {
+        case .right: return .tipTapRight
+        case .left:  return .tipTapLeft
+        case .up:    return .tipTapUp
+        case .down:  return .tipTapDown
         }
     }
 }

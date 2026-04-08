@@ -192,6 +192,63 @@ struct TipTapRejectionTests {
     }
 }
 
+@Suite("TipTap direction-angle tolerance")
+struct TipTapDirectionToleranceTests {
+
+    @Test("Near-axial tap (~26.57°, within default 30°) → recognized as tipTapRight")
+    func nearAxialWithinTolerance() {
+        var recognizer = TipTapRecognizer(sensitivity: .defaults)
+        // dx = 0.4, dy = 0.2 → angle = atan2(0.2, 0.4) ≈ 26.57° < 30°
+        let frames = Fixtures.tipTapSequence(
+            holdPos: SIMD2(0.3, 0.4),
+            tapPos: SIMD2(0.7, 0.6)
+        )
+        let result = feedAll(&recognizer, frames: frames)
+        #expect(result == .tipTapRight)
+    }
+
+    @Test("Ambiguous 45° diagonal tap → rejected with directionAmbiguous label")
+    func fortyFiveDiagonalRejected() {
+        var recognizer = TipTapRecognizer(sensitivity: .defaults)
+        // dx = 0.3, dy = 0.3 → angle = 45° > 30°
+        let frames = Fixtures.tipTapSequence(
+            holdPos: SIMD2(0.3, 0.3),
+            tapPos: SIMD2(0.6, 0.6)
+        )
+        let outcome = runAndCollect(&recognizer, frames: frames)
+        #expect(outcome.gesture == nil, "45° diagonal should not be recognized")
+        #expect(outcome.rejections.contains { $0.label == "directionAmbiguous" },
+                "Should emit directionAmbiguous rejection")
+    }
+
+    @Test("Tight tolerance (15°) rejects ~26.57° off-axis tap")
+    func tightToleranceRejectsNearAxial() {
+        var sensitivity = SensitivityConfig.defaults
+        sensitivity.directionAngleTolerance = 15.0
+        var recognizer = TipTapRecognizer(sensitivity: sensitivity)
+        let frames = Fixtures.tipTapSequence(
+            holdPos: SIMD2(0.3, 0.4),
+            tapPos: SIMD2(0.7, 0.6)
+        )
+        let outcome = runAndCollect(&recognizer, frames: frames)
+        #expect(outcome.gesture == nil)
+        #expect(outcome.rejections.contains { $0.label == "directionAmbiguous" })
+    }
+
+    @Test("Loose tolerance (45°) accepts 45° diagonal as tipTapRight")
+    func looseToleranceAcceptsDiagonal() {
+        var sensitivity = SensitivityConfig.defaults
+        sensitivity.directionAngleTolerance = 45.0
+        var recognizer = TipTapRecognizer(sensitivity: sensitivity)
+        let frames = Fixtures.tipTapSequence(
+            holdPos: SIMD2(0.3, 0.3),
+            tapPos: SIMD2(0.6, 0.6)
+        )
+        let result = feedAll(&recognizer, frames: frames)
+        #expect(result == .tipTapRight, "45° tie resolves to horizontal cardinal")
+    }
+}
+
 @Suite("TipTap state transitions")
 struct TipTapStateTests {
 
@@ -240,4 +297,22 @@ private func feedAll(_ recognizer: inout TipTapRecognizer, frames: [TouchFrame])
         }
     }
     return nil
+}
+
+/// Feed all frames and collect the first terminal outcome (gesture or rejection batch).
+private struct TerminalOutcome {
+    let gesture: GestureType?
+    let rejections: [RejectionReason]
+}
+
+private func runAndCollect(_ recognizer: inout TipTapRecognizer, frames: [TouchFrame]) -> TerminalOutcome {
+    var collected: [RejectionReason] = []
+    for frame in frames {
+        let result = recognizer.processFrame(frame)
+        if let gesture = result.gesture {
+            return TerminalOutcome(gesture: gesture, rejections: collected + result.rejections)
+        }
+        collected.append(contentsOf: result.rejections)
+    }
+    return TerminalOutcome(gesture: nil, rejections: collected)
 }
