@@ -22,10 +22,11 @@ public actor RecognitionLoop {
     /// Order is authoritative: when two recognizers report a gesture on the same
     /// frame, the earlier entry in this array wins.
     private static func makeRecognizers(sensitivity: SensitivityConfig) -> [any GestureRecognizer] {
-        // Recognizers added incrementally across Phase 3 steps 3-5. Only TipTap
-        // is implemented at this point; upcoming recognizers slot into the
-        // positions reserved in the doc comment above.
+        // Recognizers added incrementally across Phase 3 steps 3-5.
+        // MultiFingerTap and MultiFingerSwipe slot in between CornerTap and
+        // TipTap in later steps.
         return [
+            CornerTapRecognizer(sensitivity: sensitivity),
             TipTapRecognizer(sensitivity: sensitivity),
         ]
     }

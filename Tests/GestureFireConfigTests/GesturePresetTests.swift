@@ -15,10 +15,17 @@ struct GesturePresetTests {
         #expect(GesturePreset.allPresets.count >= 3)
     }
 
+    /// TipTap cases — the subset presets are expected to cover.
+    /// Phase 3 adds corner/multi-finger cases but ships no new preset mappings,
+    /// so this iteration is scoped to TipTap only.
+    private static let tipTapCases: [GestureType] = [
+        .tipTapLeft, .tipTapRight, .tipTapUp, .tipTapDown,
+    ]
+
     @Test("Browser preset maps all 4 TipTap directions")
     func browserPresetComplete() {
         let preset = GesturePreset.browser
-        for gesture in GestureType.allCases {
+        for gesture in Self.tipTapCases {
             #expect(preset.gestures[gesture.rawValue] != nil, "Missing mapping for \(gesture)")
         }
     }
@@ -26,7 +33,7 @@ struct GesturePresetTests {
     @Test("IDE preset maps all 4 TipTap directions")
     func idePresetComplete() {
         let preset = GesturePreset.ide
-        for gesture in GestureType.allCases {
+        for gesture in Self.tipTapCases {
             #expect(preset.gestures[gesture.rawValue] != nil, "Missing mapping for \(gesture)")
         }
     }

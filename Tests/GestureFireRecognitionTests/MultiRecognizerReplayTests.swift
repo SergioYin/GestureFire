@@ -56,4 +56,27 @@ struct MultiRecognizerReplayTests {
             "Fixture \(name) replayed as \(recognized), expected [\(sample.header.gestureType)]"
         )
     }
+
+    // MARK: - CornerTap (Phase 3 Step 3)
+
+    @Test(
+        "CornerTap fixture replays to declared corner",
+        arguments: [
+            "cornertap-top-left",
+            "cornertap-top-right",
+            "cornertap-bottom-left",
+            "cornertap-bottom-right",
+        ]
+    )
+    func cornerTapFixtureReplay(name: String) async throws {
+        let sample = try Self.loadSample(subdir: "cornertap", name: name)
+        let loop = RecognitionLoop(sensitivity: sample.header.sensitivity)
+        let results = await loop.replay(frames: sample.frames)
+        let recognized = results.compactMap(\.gesture)
+
+        #expect(
+            recognized == [sample.header.gestureType],
+            "Fixture \(name) replayed as \(recognized), expected [\(sample.header.gestureType)]"
+        )
+    }
 }

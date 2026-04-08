@@ -64,4 +64,35 @@ struct FixtureGenerator {
             try Self.write(sample, to: dir, name: name)
         }
     }
+
+    // MARK: - CornerTap
+
+    @Test("Generate CornerTap fixtures")
+    func generateCornerTap() throws {
+        guard Self.isEnabled else { return }
+
+        let dir = Self.fixtureDir("cornertap")
+        let sensitivity = SensitivityConfig.defaults
+        let recordedAt = Date(timeIntervalSinceReferenceDate: 0)
+
+        // Each entry: (name, expected gesture, tap position inside the corner region)
+        let variants: [(String, GestureType, SIMD2<Float>)] = [
+            ("cornertap-top-left",     .cornerTapTopLeft,     SIMD2(0.10, 0.90)),
+            ("cornertap-top-right",    .cornerTapTopRight,    SIMD2(0.90, 0.90)),
+            ("cornertap-bottom-left",  .cornerTapBottomLeft,  SIMD2(0.10, 0.10)),
+            ("cornertap-bottom-right", .cornerTapBottomRight, SIMD2(0.90, 0.10)),
+        ]
+
+        for (name, gesture, position) in variants {
+            let frames = Fixtures.cornerTapSequence(position: position)
+            let header = SampleHeader(
+                gestureType: gesture,
+                sensitivity: sensitivity,
+                recordedAt: recordedAt,
+                frameCount: frames.count
+            )
+            let sample = GestureSample(header: header, frames: frames)
+            try Self.write(sample, to: dir, name: name)
+        }
+    }
 }

@@ -74,4 +74,40 @@ enum Fixtures {
 
         return frames
     }
+
+    /// Generate a single-finger corner tap frame sequence:
+    /// 1. One finger appears at `position` (frames 0..tapDurationMs)
+    /// 2. Finger disappears (post-lift frames)
+    ///
+    /// Returns frames that should produce a CornerTap recognition when
+    /// `position` falls inside a corner region.
+    static func cornerTapSequence(
+        position: SIMD2<Float>,
+        tapStartMs: Int = 0,
+        tapDurationMs: Int = 120,
+        postLiftMs: Int = 200,
+        frameIntervalMs: Int = 16
+    ) -> [TouchFrame] {
+        var frames: [TouchFrame] = []
+        let fingerId: Int32 = 1
+
+        var t = tapStartMs
+        let tapEnd = tapStartMs + tapDurationMs
+        while t <= tapEnd {
+            frames.append(frame([
+                point(id: fingerId, x: position.x, y: position.y, at: time(t)),
+            ], at: time(t)))
+            t += frameIntervalMs
+        }
+
+        // Post-lift: empty frames so the recognizer observes the lift.
+        t = tapEnd + frameIntervalMs
+        let postEnd = tapEnd + postLiftMs
+        while t <= postEnd {
+            frames.append(frame([], at: time(t)))
+            t += frameIntervalMs
+        }
+
+        return frames
+    }
 }
