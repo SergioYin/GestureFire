@@ -23,10 +23,10 @@ public actor RecognitionLoop {
     /// frame, the earlier entry in this array wins.
     private static func makeRecognizers(sensitivity: SensitivityConfig) -> [any GestureRecognizer] {
         // Recognizers added incrementally across Phase 3 steps 3-5.
-        // MultiFingerTap and MultiFingerSwipe slot in between CornerTap and
-        // TipTap in later steps.
+        // MultiFingerSwipe slots between MultiFingerTap and TipTap in step 5.
         return [
             CornerTapRecognizer(sensitivity: sensitivity),
+            MultiFingerTapRecognizer(sensitivity: sensitivity),
             TipTapRecognizer(sensitivity: sensitivity),
         ]
     }

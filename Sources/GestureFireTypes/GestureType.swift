@@ -14,6 +14,11 @@ public enum GestureType: String, Sendable, Codable, CaseIterable, Hashable {
     case cornerTapTopRight
     case cornerTapBottomLeft
     case cornerTapBottomRight
+
+    // Phase 3: multi-finger taps (3/4/5 fingers tap together)
+    case multiFingerTap3
+    case multiFingerTap4
+    case multiFingerTap5
 }
 
 extension GestureType {
@@ -27,6 +32,9 @@ extension GestureType {
         case .cornerTapTopRight: "Corner Tap Top-Right"
         case .cornerTapBottomLeft: "Corner Tap Bottom-Left"
         case .cornerTapBottomRight: "Corner Tap Bottom-Right"
+        case .multiFingerTap3: "3-Finger Tap"
+        case .multiFingerTap4: "4-Finger Tap"
+        case .multiFingerTap5: "5-Finger Tap"
         }
     }
 }

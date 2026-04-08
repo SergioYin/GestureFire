@@ -75,6 +75,69 @@ enum Fixtures {
         return frames
     }
 
+    /// Generate a multi-finger tap frame sequence:
+    /// 1. All N fingers touch down at `touchdownMs` (all within the same frame)
+    /// 2. Fingers stay stationary until `liftMs`
+    /// 3. Post-lift empty frames so the recognizer observes the lift
+    ///
+    /// `positions.count` determines the finger count. Each entry is the
+    /// stationary position for that finger over the whole sequence.
+    static func multiFingerTapSequence(
+        positions: [SIMD2<Float>],
+        touchdownMs: Int = 0,
+        liftMs: Int = 120,
+        postLiftMs: Int = 200,
+        frameIntervalMs: Int = 16
+    ) -> [TouchFrame] {
+        precondition(positions.count >= 2, "Need at least 2 fingers")
+        var frames: [TouchFrame] = []
+
+        // Phase 1: empty pre-roll (none by default)
+        var t = 0
+        while t < touchdownMs {
+            frames.append(frame([], at: time(t)))
+            t += frameIntervalMs
+        }
+
+        // Phase 2: all N fingers present and stationary
+        t = touchdownMs
+        while t <= liftMs {
+            let pts = positions.enumerated().map { idx, pos in
+                point(id: Int32(idx + 1), x: pos.x, y: pos.y, at: time(t))
+            }
+            frames.append(frame(pts, at: time(t)))
+            t += frameIntervalMs
+        }
+
+        // Phase 3: post-lift empty frames
+        t = liftMs + frameIntervalMs
+        let postEnd = liftMs + postLiftMs
+        while t <= postEnd {
+            frames.append(frame([], at: time(t)))
+            t += frameIntervalMs
+        }
+
+        return frames
+    }
+
+    /// Convenience: N fingers clustered around a centroid with small offsets.
+    /// Produces positions that fit comfortably within the default
+    /// `fingerProximityThreshold × 3` spread for multi-finger taps.
+    static func multiFingerCluster(count: Int, centroid: SIMD2<Float> = SIMD2(0.5, 0.5), spacing: Float = 0.05) -> [SIMD2<Float>] {
+        precondition(count >= 2 && count <= 5)
+        // Small horizontal fan centred on `centroid`.
+        let offsets: [Float] = {
+            switch count {
+            case 2: return [-0.5, 0.5]
+            case 3: return [-1.0, 0.0, 1.0]
+            case 4: return [-1.5, -0.5, 0.5, 1.5]
+            case 5: return [-2.0, -1.0, 0.0, 1.0, 2.0]
+            default: return []
+            }
+        }()
+        return offsets.map { SIMD2(centroid.x + $0 * spacing, centroid.y) }
+    }
+
     /// Generate a single-finger corner tap frame sequence:
     /// 1. One finger appears at `position` (frames 0..tapDurationMs)
     /// 2. Finger disappears (post-lift frames)

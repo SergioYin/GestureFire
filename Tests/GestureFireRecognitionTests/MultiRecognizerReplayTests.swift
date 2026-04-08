@@ -79,4 +79,26 @@ struct MultiRecognizerReplayTests {
             "Fixture \(name) replayed as \(recognized), expected [\(sample.header.gestureType)]"
         )
     }
+
+    // MARK: - MultiFingerTap (Phase 3 Step 4)
+
+    @Test(
+        "MultiFingerTap fixture replays to declared finger count",
+        arguments: [
+            "multifingertap-3",
+            "multifingertap-4",
+            "multifingertap-5",
+        ]
+    )
+    func multiFingerTapFixtureReplay(name: String) async throws {
+        let sample = try Self.loadSample(subdir: "multifingertap", name: name)
+        let loop = RecognitionLoop(sensitivity: sample.header.sensitivity)
+        let results = await loop.replay(frames: sample.frames)
+        let recognized = results.compactMap(\.gesture)
+
+        #expect(
+            recognized == [sample.header.gestureType],
+            "Fixture \(name) replayed as \(recognized), expected [\(sample.header.gestureType)]"
+        )
+    }
 }

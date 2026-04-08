@@ -95,4 +95,35 @@ struct FixtureGenerator {
             try Self.write(sample, to: dir, name: name)
         }
     }
+
+    // MARK: - MultiFingerTap
+
+    @Test("Generate MultiFingerTap fixtures")
+    func generateMultiFingerTap() throws {
+        guard Self.isEnabled else { return }
+
+        let dir = Self.fixtureDir("multifingertap")
+        let sensitivity = SensitivityConfig.defaults
+        let recordedAt = Date(timeIntervalSinceReferenceDate: 0)
+
+        // Each entry: (name, expected gesture, finger count)
+        let variants: [(String, GestureType, Int)] = [
+            ("multifingertap-3", .multiFingerTap3, 3),
+            ("multifingertap-4", .multiFingerTap4, 4),
+            ("multifingertap-5", .multiFingerTap5, 5),
+        ]
+
+        for (name, gesture, count) in variants {
+            let positions = Fixtures.multiFingerCluster(count: count)
+            let frames = Fixtures.multiFingerTapSequence(positions: positions)
+            let header = SampleHeader(
+                gestureType: gesture,
+                sensitivity: sensitivity,
+                recordedAt: recordedAt,
+                frameCount: frames.count
+            )
+            let sample = GestureSample(header: header, frames: frames)
+            try Self.write(sample, to: dir, name: name)
+        }
+    }
 }
