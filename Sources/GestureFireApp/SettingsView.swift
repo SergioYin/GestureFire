@@ -67,6 +67,17 @@ private enum SettingsTab: String, CaseIterable {
         case .status: "stethoscope"
         }
     }
+
+    /// Cmd+1..5 tab shortcut. Index matches the order in `allCases`.
+    var shortcutKey: KeyEquivalent {
+        switch self {
+        case .feedback: "1"
+        case .gestures: "2"
+        case .advanced: "3"
+        case .logs: "4"
+        case .status: "5"
+        }
+    }
 }
 
 private struct SettingsTabButton: View {
@@ -89,38 +100,114 @@ private struct SettingsTabButton: View {
                 )
         }
         .buttonStyle(.plain)
+        .keyboardShortcut(tab.shortcutKey, modifiers: .command)
+        .accessibilityLabel("\(tab.label) tab")
+        .accessibilityHint(Text(verbatim: "Press Command \(String(tab.shortcutKey.character)) to switch to the \(tab.label) tab."))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
 // MARK: - Gesture Mapping
 
+/// A group of related gestures rendered as one section in the mapping view.
+private struct GestureFamily: Identifiable {
+    let id: String
+    let title: String
+    let caption: String?
+    let gestures: [GestureType]
+}
+
 struct GestureMappingView: View {
     let coordinator: AppCoordinator
+
+    private var families: [GestureFamily] {
+        [
+            GestureFamily(
+                id: "tiptap",
+                title: "TipTap",
+                caption: "Hold one finger, tap another in a direction.",
+                gestures: [.tipTapLeft, .tipTapRight, .tipTapUp, .tipTapDown]
+            ),
+            GestureFamily(
+                id: "multifingertap",
+                title: "Multi-Finger Tap",
+                caption: "Tap several fingers together and lift.",
+                gestures: [.multiFingerTap3, .multiFingerTap4, .multiFingerTap5]
+            ),
+            GestureFamily(
+                id: "swipe3",
+                title: "3-Finger Swipe",
+                caption: "Place three fingers and slide in a direction.",
+                gestures: [
+                    .multiFingerSwipe3Left,
+                    .multiFingerSwipe3Right,
+                    .multiFingerSwipe3Up,
+                    .multiFingerSwipe3Down,
+                ]
+            ),
+            GestureFamily(
+                id: "swipe4",
+                title: "4-Finger Swipe",
+                caption: "Place four fingers and slide in a direction.",
+                gestures: [
+                    .multiFingerSwipe4Left,
+                    .multiFingerSwipe4Right,
+                    .multiFingerSwipe4Up,
+                    .multiFingerSwipe4Down,
+                ]
+            ),
+            GestureFamily(
+                id: "corner",
+                title: "Corner Tap",
+                caption: "Single-finger tap inside a corner region.",
+                gestures: [
+                    .cornerTapTopLeft,
+                    .cornerTapTopRight,
+                    .cornerTapBottomLeft,
+                    .cornerTapBottomRight,
+                ]
+            ),
+        ]
+    }
+
     var body: some View {
         Form {
-            Section {
-                ForEach(GestureType.allCases, id: \.self) { gesture in
-                    LabeledContent(gesture.displayName) {
-                        ShortcutField(
-                            shortcut: coordinator.configStore.config.shortcut(for: gesture),
-                            onChange: { newShortcut in
-                                coordinator.configStore.update { config in
-                                    if let shortcut = newShortcut {
-                                        config.gestures[gesture.rawValue] = shortcut
-                                    } else {
-                                        config.gestures.removeValue(forKey: gesture.rawValue)
+            ForEach(families) { family in
+                Section {
+                    ForEach(family.gestures, id: \.self) { gesture in
+                        LabeledContent(gesture.displayName) {
+                            ShortcutField(
+                                shortcut: coordinator.configStore.config.shortcut(for: gesture),
+                                onChange: { newShortcut in
+                                    coordinator.configStore.update { config in
+                                        if let shortcut = newShortcut {
+                                            config.gestures[gesture.rawValue] = shortcut
+                                        } else {
+                                            config.gestures.removeValue(forKey: gesture.rawValue)
+                                        }
                                     }
                                 }
-                            }
-                        )
+                            )
+                            .accessibilityLabel("\(gesture.displayName) shortcut")
+                        }
+                    }
+                } header: {
+                    Text(family.title)
+                        .font(.subheadline.weight(.medium))
+                        .accessibilityAddTraits(.isHeader)
+                } footer: {
+                    if let caption = family.caption {
+                        Text(caption)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
-            } header: {
-                Text("TipTap Gestures")
-                    .font(.subheadline.weight(.medium))
-            } footer: {
-                Text("Format: Modifier+Key, e.g. cmd+left, ctrl+shift+t")
+            }
+
+            Section {
+                Text("Shortcut format: Modifier+Key, e.g. cmd+left, ctrl+shift+t")
                     .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
