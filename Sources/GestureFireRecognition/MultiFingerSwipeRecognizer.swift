@@ -60,20 +60,26 @@ public struct MultiFingerSwipeRecognizer: GestureRecognizer {
 
     public mutating func processFrame(_ frame: TouchFrame) -> RecognitionResult {
         let now = frame.timestamp
-        let proximityThreshold = Float(sensitivity.fingerProximityThreshold)
+        let clusterTolerance = Float(sensitivity.swipeClusterTolerance)
         let swipeMinDistance = Float(sensitivity.swipeMinDistance)
         let swipeMaxSec = sensitivity.swipeMaxDurationMs / 1000.0
         let cooldownSec = sensitivity.debounceCooldownMs / 1000.0
         let groupingWindowSec = sensitivity.tapGroupingWindowMs / 1000.0
         let angleTolerance = sensitivity.directionAngleTolerance
 
-        let active = frame.points.filter { $0.state == .touching || $0.state == .making }
+        // Include .breaking so staggered lifts don't cause premature "all lifted"
+        // evaluation. On real hardware, fingers transition through .breaking over
+        // 1-2 frames before disappearing.
+        let active = frame.points.filter {
+            $0.state == .touching || $0.state == .making || $0.state == .breaking
+        }
+        let firmlyDown = frame.points.filter { $0.state == .touching || $0.state == .making }
 
         switch state {
         case .idle:
-            if active.isEmpty { return .empty }
+            if firmlyDown.isEmpty { return .empty }
             var fingers: [Int32: TrackedFinger] = [:]
-            for p in active {
+            for p in firmlyDown {
                 fingers[p.id] = TrackedFinger(id: p.id, position: p.position, time: now)
             }
             let centroid = Self.centroid(of: fingers.values.map { $0.startPosition })
@@ -86,7 +92,9 @@ public struct MultiFingerSwipeRecognizer: GestureRecognizer {
             return .empty
 
         case .tracking(var fingers, let firstTouchdown, var initialCentroid, var peakCount):
-            // Build updated fingers; reject late arrivals.
+            // Build updated fingers using `active` (includes .breaking) so
+            // staggered lifts don't trigger premature swipe evaluation.
+            // New finger detection uses firmly-down only.
             var updated: [Int32: TrackedFinger] = [:]
             var newFingerArrived = false
             for p in active {
@@ -94,10 +102,8 @@ public struct MultiFingerSwipeRecognizer: GestureRecognizer {
                     existing.lastPosition = p.position
                     existing.lastTime = now
                     updated[p.id] = existing
-                } else {
+                } else if p.state == .touching || p.state == .making {
                     if now.timeIntervalSince(firstTouchdown) > groupingWindowSec {
-                        // Late touchdown — abort to cooldown silently so the
-                        // ongoing touch cannot re-enter tracking after lift.
                         state = .cooldown(until: now.addingTimeInterval(cooldownSec))
                         return .empty
                     }
@@ -121,12 +127,12 @@ public struct MultiFingerSwipeRecognizer: GestureRecognizer {
             if !updated.isEmpty {
                 let currentCentroid = Self.centroid(of: updated.values.map { $0.lastPosition })
                 if let outlier = Self.maxDistance(from: currentCentroid, in: updated.values.map { $0.lastPosition }),
-                   outlier > proximityThreshold {
+                   outlier > clusterTolerance {
                     state = .cooldown(until: now.addingTimeInterval(cooldownSec))
                     return .rejected([RejectionReason(
                         recognizer: "MultiFingerSwipe",
-                        parameter: "fingerProximityThreshold",
-                        threshold: sensitivity.fingerProximityThreshold,
+                        parameter: "swipeClusterTolerance",
+                        threshold: sensitivity.swipeClusterTolerance,
                         actual: Double(outlier),
                         label: "clusterBroken"
                     )])
@@ -212,11 +218,11 @@ public struct MultiFingerSwipeRecognizer: GestureRecognizer {
 
         case .cooldown(let until):
             if now < until { return .empty }
-            // Inline idle re-entry — avoid recursive mutating call.
+            // Inline idle re-entry — use firmlyDown for new tracking entry.
             state = .idle
-            if active.isEmpty { return .empty }
+            if firmlyDown.isEmpty { return .empty }
             var fingers: [Int32: TrackedFinger] = [:]
-            for p in active {
+            for p in firmlyDown {
                 fingers[p.id] = TrackedFinger(id: p.id, position: p.position, time: now)
             }
             let centroid = Self.centroid(of: fingers.values.map { $0.startPosition })

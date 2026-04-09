@@ -191,8 +191,8 @@ struct MultiFingerSwipeRejectionTests {
             let cx = 0.3 + 0.4 * progress
             let f1 = Fixtures.point(id: 1, x: cx - 0.02, y: 0.5, at: t)
             let f2 = Fixtures.point(id: 2, x: cx + 0.02, y: 0.5, at: t)
-            // Finger 3: diverges vertically by up to 0.4 (well beyond proximity 0.15)
-            let f3 = Fixtures.point(id: 3, x: 0.5, y: 0.5 + 0.4 * progress, at: t)
+            // Finger 3: diverges vertically by up to 0.8 (well beyond swipeClusterTolerance 0.30)
+            let f3 = Fixtures.point(id: 3, x: 0.5, y: 0.5 + 0.8 * progress, at: t)
             frames.append(Fixtures.frame([f1, f2, f3], at: t))
             ms += frameMs
         }

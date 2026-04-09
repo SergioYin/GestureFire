@@ -511,3 +511,50 @@ Phase 2.6 made the interface look finished with surface hierarchy, visual weight
 - **Custom tab bar loses keyboard shortcut cycling**: macOS native `TabView` supports `Cmd+1..5` tab switching out of the box. The custom tab bar does not. Acceptable for now (not in scope), but should be added back via `.keyboardShortcut` on each `SettingsTabButton` in Phase 3.
 - **LogViewerView minimal changes**: Alternating row tint was not achievable within `List` constraints without adding complexity. Only spacing constants applied.
 - **Tab/VoiceOver verification pending**: Status tab ScrollView conversion and custom settings tab bar both need manual accessibility verification before Phase 3.
+
+---
+
+# Phase 3 Review — More Gestures
+
+## Scope
+
+Phase 3 expanded the gesture vocabulary from 4 TipTap directions to 19 gesture types across 5 families. It also resolved all Phase 2.6 carry-over items (directionAngleTolerance wiring, Cmd+1..5 shortcuts, Tab/VoiceOver accessibility, fingerProximityThreshold evaluation).
+
+## Delivered
+
+- 4 recognizers: CornerTap, MultiFingerTap, MultiFingerSwipe, TipTap (priority-ordered)
+- 19 gesture types: 4 TipTap + 4 CornerTap + 3 MultiFingerTap + 8 MultiFingerSwipe
+- 14 sensitivity parameters: 10 shared + 4 multi-finger dedicated (added in H2 hardening)
+- 19 replay regression fixtures as automated safety net
+- 215 tests in 44 suites (up from 153 in 30)
+- Focusable custom tab bar with `@FocusState` + `onMoveCommand` + `onKeyPress`
+- Settings: 5 gesture family sections, 5-section Advanced tab with all 14 params exposed
+
+## Hardening Rounds (Real-Device Testing)
+
+Three hardening rounds were required after initial implementation, all discovered during real-device testing:
+
+1. **H1 (gesture)**: `.breaking` OMS state added to active filter, static gesture instructions in Settings, conservative shared default relaxation. Result: 3-Finger Tap fixed; 4F/5F Tap and 3F Swipe still failed.
+2. **H2 (gesture)**: 4 explicit dedicated multi-finger parameters (`multiFingerTapDurationMs`, `multiFingerMovementTolerance`, `multiFingerSpreadMax`, `swipeClusterTolerance`), eliminated hidden `×3` multiplier. Result: All multi-finger gestures now functional.
+3. **H3 (accessibility)**: Replaced `.buttonStyle(.plain)` tab bar with `.focusable()` views using `@FocusState` + `onMoveCommand` + `onKeyPress`. Result: M4 accessibility passed.
+
+## Key Lessons
+
+1. **Annotation ≠ accessibility**: Adding `.accessibilityLabel` and `.isSelected` traits to `.buttonStyle(.plain)` buttons does not make them keyboard-focusable on macOS. The view must participate in the focus system (`.focusable()`) — annotations are metadata on a structure that must already be accessible.
+2. **Real-device testing must happen mid-implementation, not at close-out**: All three hardening rounds were triggered by real-device findings that synthetic fixture tests could not catch.
+3. **Hidden multipliers are a design smell**: `fingerProximityThreshold × 3` in MultiFingerTap violated the "all parameters explicit and tunable" principle. Caught late; should have been flagged in code review.
+4. **Replay canary is invaluable**: The 19-fixture regression suite held green across all steps and hardening rounds, catching no regressions despite significant parameter and recognizer changes.
+
+## What Went Well
+
+- Replay canary as mandatory gate for every step
+- TDD caught design issues early (staggered touchdown, grouping+motion conflict)
+- Priority-ordered recognizer array: simple, deterministic, no conflict resolution needed
+- Step boundaries with explicit scope fences prevented creep
+
+## What Needs Improvement
+
+- Accessibility should be definition-of-done per UI step, not a post-hoc audit
+- `.buttonStyle(.plain)` should never be used for interactive controls that must be keyboard-accessible — this was introduced in Phase 2.6 and only caught in Phase 3 H3
+- Real-device checkpoint should be mandatory mid-phase, not only at close-out
+- Multi-finger swipe naturalness still needs improvement — deferred to Phase 4 Smart Tuning where rejection-reason data can guide parameter refinement

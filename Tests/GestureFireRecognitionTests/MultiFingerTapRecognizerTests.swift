@@ -71,7 +71,7 @@ struct MultiFingerTapRejectionTests {
         var recognizer = MultiFingerTapRecognizer(sensitivity: .defaults)
         let frames = Fixtures.multiFingerTapSequence(
             positions: Fixtures.multiFingerCluster(count: 3),
-            liftMs: 500 // > default tapMaxDurationMs (300)
+            liftMs: 800 // > default multiFingerTapDurationMs (600)
         )
         let outcome = runAllMultiCollecting(&recognizer, frames: frames)
         #expect(outcome.gesture == nil)

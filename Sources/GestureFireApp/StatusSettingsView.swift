@@ -48,6 +48,7 @@ struct StatusSettingsView: View {
                 .font(.system(size: 28))
                 .foregroundStyle(engineStateColor)
                 .frame(width: 40)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(coordinator.engineState.displayLabel)
@@ -56,6 +57,9 @@ struct StatusSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Engine status: \(coordinator.engineState.displayLabel). \(engineStateExplanation)")
+            .accessibilityAddTraits(.isHeader)
 
             Spacer()
 
@@ -120,6 +124,7 @@ struct StatusSettingsView: View {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 Text("System Checks")
                     .font(.subheadline.weight(.medium))
+                    .accessibilityAddTraits(.isHeader)
 
                 if diagnosticResults.isEmpty && !isRunning {
                     Text("Checking...")
@@ -130,6 +135,7 @@ struct StatusSettingsView: View {
                             Image(systemName: result.status == .pass ? "checkmark.circle.fill" : "xmark.circle.fill")
                                 .foregroundStyle(result.status == .pass ? .green : .red)
                                 .font(.body)
+                                .accessibilityHidden(true)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(result.name)
                                     .font(.body)
@@ -141,6 +147,8 @@ struct StatusSettingsView: View {
                             }
                             Spacer()
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(result.name): \(result.status == .pass ? "passed" : "failed")\(result.fixInstruction.map { ". \($0)" } ?? "")")
                     }
 
                     if hasAccessibilityFailure {
@@ -173,6 +181,7 @@ struct StatusSettingsView: View {
             Text("Recent Events")
                 .font(.subheadline.weight(.medium))
                 .padding(.horizontal, Spacing.lg)
+                .accessibilityAddTraits(.isHeader)
 
             VStack(spacing: 0) {
                 if coordinator.recentEvents.isEmpty {
@@ -188,6 +197,7 @@ struct StatusSettingsView: View {
                             Image(systemName: event.systemImage)
                                 .foregroundStyle(eventColor(event))
                                 .frame(width: 16)
+                                .accessibilityHidden(true)
                             Text(event.displayDescription)
                                 .font(.system(.caption, design: .monospaced))
                             Spacer()
@@ -198,6 +208,8 @@ struct StatusSettingsView: View {
                         .padding(.horizontal, Spacing.lg)
                         .padding(.vertical, Spacing.sm)
                         .opacity(index == 0 ? 1.0 : 0.7)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(event.displayDescription), \(timeAgo(event.timestamp))")
                     }
                 }
             }
@@ -212,14 +224,17 @@ struct StatusSettingsView: View {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 Text("Connection Test")
                     .font(.subheadline.weight(.medium))
+                    .accessibilityAddTraits(.isHeader)
 
                 if let event = coordinator.lastPipelineEvent {
                     HStack(spacing: Spacing.sm) {
                         Image(systemName: event.systemImage)
                             .foregroundStyle(eventColor(event))
+                            .accessibilityHidden(true)
                         Text(event.displayDescription)
                             .font(.callout)
                     }
+                    .accessibilityElement(children: .combine)
                 }
 
                 Text("Try a gesture now. Did the mapped shortcut trigger?")

@@ -34,7 +34,7 @@ struct ConfigMigrationTests {
         #expect(config.sensitivity.movementTolerance == 0.02)
         // New fields should get defaults
         #expect(config.sensitivity.directionAngleTolerance == 30.0)
-        #expect(config.sensitivity.fingerProximityThreshold == 0.15)
+        #expect(config.sensitivity.fingerProximityThreshold == 0.20)
     }
 
     @Test("v2 config passes through unchanged")

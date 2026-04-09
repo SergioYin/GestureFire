@@ -68,6 +68,7 @@ private struct StepIndicator: View {
                         .fill(step <= currentStep ? Color.accentColor : Color.secondary.opacity(0.2))
                         .frame(height: 2)
                         .frame(maxWidth: 48)
+                        .accessibilityHidden(true)
                 }
 
                 HStack(spacing: Spacing.sm) {
@@ -89,8 +90,19 @@ private struct StepIndicator: View {
                         .font(.subheadline)
                         .foregroundStyle(step == currentStep ? .primary : .secondary)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Step \(index + 1) of \(Self.steps.count): \(stepLabel(step))")
+                .accessibilityValue(stepValue(for: step))
+                .accessibilityAddTraits(step == currentStep ? .isSelected : [])
             }
         }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func stepValue(for step: OnboardingCoordinator.Step) -> String {
+        if step < currentStep { return "completed" }
+        if step == currentStep { return "current" }
+        return "upcoming"
     }
 
     private func stepLabel(_ step: OnboardingCoordinator.Step) -> String {
@@ -118,9 +130,11 @@ private struct PermissionStepView: View {
                     .font(.system(size: 44))
                     .foregroundStyle(Color.accentColor)
             }
+            .accessibilityHidden(true)
 
             Text("Accessibility Permission")
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
 
             Text("GestureFire needs accessibility access to detect trackpad gestures and simulate keyboard shortcuts.")
                 .multilineTextAlignment(.center)
@@ -177,6 +191,7 @@ private struct PresetStepView: View {
         VStack(spacing: Spacing.xl) {
             Text("Choose a Preset")
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
 
             Text("Select a gesture-to-shortcut mapping to get started.")
                 .foregroundStyle(.secondary)
@@ -233,6 +248,7 @@ private struct PresetCard: View {
                 VStack(spacing: Spacing.sm) {
                     Image(systemName: preset.icon)
                         .font(.title)
+                        .accessibilityHidden(true)
                     Text(preset.displayName)
                         .font(.subheadline.bold())
                     Text(preset.description)
@@ -256,6 +272,9 @@ private struct PresetCard: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(preset.displayName) preset")
+        .accessibilityHint(preset.description)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -270,6 +289,7 @@ private struct PracticeStepView: View {
         VStack(spacing: Spacing.xl) {
             Text("Test Your Gestures")
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
 
             Text("Perform each gesture to verify it works. Hold one finger, then tap another in the indicated direction.")
                 .multilineTextAlignment(.center)
@@ -356,11 +376,13 @@ private struct CalibrationRow: View {
                     }
                 }
             }
+            .accessibilityHidden(true)
 
             if isCurrent {
                 Image(systemName: "arrow.left")
                     .foregroundStyle(Color.accentColor)
                     .font(.caption)
+                    .accessibilityHidden(true)
             }
         }
         .padding(.vertical, Spacing.xs)
@@ -371,6 +393,20 @@ private struct CalibrationRow: View {
                 : Color.clear,
             in: RoundedRectangle(cornerRadius: 6)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityDescription)
+    }
+
+    private var accessibilityDescription: String {
+        let successes = attempts.filter { $0 }.count
+        let status: String
+        if attempts.isEmpty {
+            status = "not attempted"
+        } else {
+            status = "\(successes) of \(maxAttempts) successful, \(attempts.count) attempted"
+        }
+        let current = isCurrent ? ", current gesture" : ""
+        return "\(gesture.displayName): \(status)\(current)"
     }
 }
 
@@ -389,9 +425,11 @@ private struct ConfirmStepView: View {
                     .font(.system(size: 44))
                     .foregroundStyle(.green)
             }
+            .accessibilityHidden(true)
 
             Text("Ready to Go!")
                 .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
 
             if let preset = coordinator.selectedPreset {
                 VStack(alignment: .leading, spacing: Spacing.sm) {

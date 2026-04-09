@@ -132,20 +132,24 @@ Recognizers receive time only via `frame.timestamp`. They never call `Date()`. T
 
 ### 6. Parameter Semantics
 
-**All 10 `SensitivityConfig` parameters are active as of Phase 3.** Every slider in Advanced Settings is backed by live recognizer code — there are no reserved knobs. Current usage:
+**All 14 `SensitivityConfig` parameters are active as of Phase 3 (H2 hardening).** 10 shared + 4 multi-finger dedicated. Every slider in Advanced Settings is backed by live recognizer code — there are no reserved knobs or hidden multipliers. Current usage:
 
 | Parameter | Status | Used By |
 |-----------|--------|---------|
-| `holdThresholdMs` | Active | TipTap (hold detection) |
-| `tapMaxDurationMs` | Active | TipTap, MultiFingerTap, CornerTap (tap window) |
-| `movementTolerance` | Active | TipTap, MultiFingerTap, CornerTap (stationary check) |
-| `debounceCooldownMs` | Active | All four recognizers (post-recognition / post-rejection cooldown) |
-| `tapGroupingWindowMs` | Active | TipTap (lifted-finger grouping), MultiFingerTap, MultiFingerSwipe (multi-finger touchdown grouping) |
-| `fingerProximityThreshold` | Active | TipTap (anti-swipe min distance), MultiFingerTap (max cluster spread = `× 3`), MultiFingerSwipe (per-frame cluster integrity) |
-| `directionAngleTolerance` | Active | TipTap, MultiFingerSwipe (via `Geometry.nearestCardinal`) |
-| `swipeMinDistance` | Active | MultiFingerSwipe (centroid displacement floor) |
-| `swipeMaxDurationMs` | Active | MultiFingerSwipe (total gesture duration cap) |
-| `cornerRegionSize` | Active | CornerTap (corner region radius) |
+| `holdThresholdMs` | Active (shared) | TipTap (hold detection) |
+| `tapMaxDurationMs` | Active (shared) | TipTap, CornerTap (tap window) |
+| `movementTolerance` | Active (shared) | TipTap, CornerTap (stationary check) |
+| `debounceCooldownMs` | Active (shared) | All four recognizers (post-recognition / post-rejection cooldown) |
+| `tapGroupingWindowMs` | Active (shared) | TipTap (lifted-finger grouping), MultiFingerTap, MultiFingerSwipe (multi-finger touchdown grouping) |
+| `fingerProximityThreshold` | Active (shared) | TipTap (anti-swipe min distance) |
+| `directionAngleTolerance` | Active (shared) | TipTap, MultiFingerSwipe (via `Geometry.nearestCardinal`) |
+| `swipeMinDistance` | Active (shared) | MultiFingerSwipe (centroid displacement floor) |
+| `swipeMaxDurationMs` | Active (shared) | MultiFingerSwipe (total gesture duration cap) |
+| `cornerRegionSize` | Active (shared) | CornerTap (corner region radius) |
+| `multiFingerTapDurationMs` | Active (dedicated) | MultiFingerTap (tap window — more permissive than shared `tapMaxDurationMs`) |
+| `multiFingerMovementTolerance` | Active (dedicated) | MultiFingerTap (stationary check — more permissive than shared `movementTolerance`) |
+| `multiFingerSpreadMax` | Active (dedicated) | MultiFingerTap (max cluster spread — replaces hidden `fingerProximityThreshold × 3`) |
+| `swipeClusterTolerance` | Active (dedicated) | MultiFingerSwipe (per-frame cluster integrity) |
 
 **Dual/triple-use parameters, kept as single knobs:**
 
@@ -242,12 +246,13 @@ These components serve roles beyond their originating phase:
 | `StatusPanelController` / `StatusPanelViewModel` | Phase 2 | Phase 3: will show new gesture types. View model pattern supports content updates without window server operations. |
 | `FileLogger.readEntries(for:)` | Phase 2 | Phase 4: data source for tuning analytics dashboard. |
 | `LaunchAtLoginManager` | Phase 2 | Stable. No expected changes unless macOS API changes. |
-| Custom settings tab bar (Phase 2.6) | Phase 2.6 | **Phase 3 active**: same tab bar, now with `Cmd+1..5` keyboard shortcuts. Visual structure unchanged — Phase 3 added sections inside tabs rather than adding tabs. |
+| Custom settings tab bar (Phase 2.6 → H3 rewrite) | Phase 2.6 | **Phase 3 active**: same visual tab bar, rewritten for accessibility in H3. Uses `.focusable()` views with `@FocusState` + `onMoveCommand` + `onKeyPress` instead of `.buttonStyle(.plain)` buttons. Tab key reaches tab bar, arrow keys switch tabs, Return/Space activates. `Cmd+1..5` via hidden background buttons. |
 
 ## Implementation Notes
 
 Small SwiftUI-specific footguns that aren't worth a full process doc but are easy to trip over again:
 
-- **`KeyEquivalent` in localized strings.** Interpolating a `KeyEquivalent.character` into an `accessibilityHint(_:)` that accepts `LocalizedStringKey` triggers the `appendInterpolation` deprecation warning in Swift 6 — `Character` is not `LocalizedStringKey`-friendly. Use `accessibilityHint(Text(verbatim: "..."))` or convert via `String(key.character)` first. This came up on the `Cmd+1..5` tab buttons in `SettingsTabButton`.
+- **`KeyEquivalent` in localized strings.** Interpolating a `KeyEquivalent.character` into an `accessibilityHint(_:)` that accepts `LocalizedStringKey` triggers the `appendInterpolation` deprecation warning in Swift 6 — `Character` is not `LocalizedStringKey`-friendly. Use `accessibilityHint(Text(verbatim: "..."))` or convert via `String(key.character)` first. This came up on the `Cmd+1..5` tab buttons (pre-H3).
+- **`.buttonStyle(.plain)` removes macOS focus chain participation.** Never use `.plain` on interactive controls that must be keyboard/VoiceOver accessible. The Phase 2.6 custom tab bar was invisible to Tab key and VoiceOver until H3 rewrote it with `.focusable()` + `@FocusState` + `onMoveCommand`. Lesson: accessibility annotations (`.accessibilityLabel`, `.isSelected`) cannot fix a structurally unfocusable control.
 
 Process documentation for all phases: `docs/process/`.

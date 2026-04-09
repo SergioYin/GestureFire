@@ -6,16 +6,25 @@ import SwiftUI
 struct SettingsView: View {
     let coordinator: AppCoordinator
     @State private var selectedTab: SettingsTab = .feedback
+    @FocusState private var focusedTab: SettingsTab?
 
     var body: some View {
         VStack(spacing: 0) {
-            // Primary navigation bar — always visible, high contrast
+            // Primary navigation bar — focusable, arrow-key navigable
             HStack(spacing: Spacing.xs) {
                 ForEach(SettingsTab.allCases, id: \.self) { tab in
-                    SettingsTabButton(tab: tab, isSelected: selectedTab == tab) {
+                    SettingsTabItem(
+                        tab: tab,
+                        isSelected: selectedTab == tab,
+                        isFocused: focusedTab == tab
+                    ) {
                         selectedTab = tab
                     }
+                    .focused($focusedTab, equals: tab)
                 }
+            }
+            .onMoveCommand { direction in
+                moveTab(direction)
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.vertical, Spacing.md)
@@ -40,6 +49,31 @@ struct SettingsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        // Hidden buttons for Cmd+1..5 shortcuts (keyboardShortcut requires Button)
+        .background {
+            ForEach(SettingsTab.allCases, id: \.self) { tab in
+                Button("") { selectedTab = tab }
+                    .keyboardShortcut(tab.shortcutKey, modifiers: .command)
+                    .frame(width: 0, height: 0)
+                    .opacity(0)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
+    private func moveTab(_ direction: MoveCommandDirection) {
+        let tabs = SettingsTab.allCases
+        let current = focusedTab ?? selectedTab
+        guard let index = tabs.firstIndex(of: current) else { return }
+        let newIndex: Int
+        switch direction {
+        case .left: newIndex = max(0, index - 1)
+        case .right: newIndex = min(tabs.count - 1, index + 1)
+        default: return
+        }
+        let newTab = tabs[newIndex]
+        focusedTab = newTab
+        selectedTab = newTab
     }
 }
 
@@ -80,30 +114,43 @@ private enum SettingsTab: String, CaseIterable {
     }
 }
 
-private struct SettingsTabButton: View {
+// MARK: - Tab Bar Item
+
+/// A focusable tab bar item. Uses `.focusable()` instead of `Button` so that it
+/// participates in the macOS Tab-key focus chain without requiring the system
+/// "Keyboard Navigation" setting. Visual appearance matches the original design.
+private struct SettingsTabItem: View {
     let tab: SettingsTab
     let isSelected: Bool
+    let isFocused: Bool
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Label(tab.label, systemImage: tab.icon)
-                .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, Spacing.sm)
-                .background(
-                    isSelected
-                        ? Color.accentColor.opacity(0.12)
-                        : Color.clear,
-                    in: RoundedRectangle(cornerRadius: 6)
-                )
-        }
-        .buttonStyle(.plain)
-        .keyboardShortcut(tab.shortcutKey, modifiers: .command)
-        .accessibilityLabel("\(tab.label) tab")
-        .accessibilityHint(Text(verbatim: "Press Command \(String(tab.shortcutKey.character)) to switch to the \(tab.label) tab."))
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        Label(tab.label, systemImage: tab.icon)
+            .font(.subheadline.weight(isSelected ? .semibold : .regular))
+            .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+            .background(
+                isSelected
+                    ? Color.accentColor.opacity(0.12)
+                    : Color.clear,
+                in: RoundedRectangle(cornerRadius: 6)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(Color.accentColor, lineWidth: 2)
+                    .opacity(isFocused ? 1 : 0)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .focusable()
+            .focusEffectDisabled()
+            .onKeyPress(.return) { action(); return .handled }
+            .onKeyPress(.space) { action(); return .handled }
+            .onTapGesture { action() }
+            .accessibilityLabel("\(tab.label) tab")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -125,19 +172,19 @@ struct GestureMappingView: View {
             GestureFamily(
                 id: "tiptap",
                 title: "TipTap",
-                caption: "Hold one finger, tap another in a direction.",
+                caption: "Rest one finger on the trackpad, then quickly tap with a second finger to the left, right, above, or below the resting finger. Keep the first finger still throughout.",
                 gestures: [.tipTapLeft, .tipTapRight, .tipTapUp, .tipTapDown]
             ),
             GestureFamily(
                 id: "multifingertap",
                 title: "Multi-Finger Tap",
-                caption: "Tap several fingers together and lift.",
+                caption: "Place 3, 4, or 5 fingers flat on the trackpad at the same time, then lift them all quickly. Keep your fingers close together and avoid sliding.",
                 gestures: [.multiFingerTap3, .multiFingerTap4, .multiFingerTap5]
             ),
             GestureFamily(
                 id: "swipe3",
                 title: "3-Finger Swipe",
-                caption: "Place three fingers and slide in a direction.",
+                caption: "Place 3 fingers close together on the trackpad and slide them in one direction, then lift. Keep the fingers moving as a group. Note: if macOS uses 3-finger swipes for Mission Control or Spaces, disable that in System Settings \u{2192} Trackpad \u{2192} More Gestures.",
                 gestures: [
                     .multiFingerSwipe3Left,
                     .multiFingerSwipe3Right,
@@ -148,7 +195,7 @@ struct GestureMappingView: View {
             GestureFamily(
                 id: "swipe4",
                 title: "4-Finger Swipe",
-                caption: "Place four fingers and slide in a direction.",
+                caption: "Place 4 fingers close together on the trackpad and slide them in one direction, then lift. Keep the fingers moving as a group.",
                 gestures: [
                     .multiFingerSwipe4Left,
                     .multiFingerSwipe4Right,
@@ -159,7 +206,7 @@ struct GestureMappingView: View {
             GestureFamily(
                 id: "corner",
                 title: "Corner Tap",
-                caption: "Single-finger tap inside a corner region.",
+                caption: "Tap once with a single finger inside one of the four corners of the trackpad. The corner region covers roughly the outer 15% of each edge.",
                 gestures: [
                     .cornerTapTopLeft,
                     .cornerTapTopRight,

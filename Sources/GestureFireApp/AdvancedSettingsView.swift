@@ -66,6 +66,36 @@ struct AdvancedSettingsView: View {
                 sectionHeader("Precision")
             }
 
+            // MARK: Multi-Finger
+            Section {
+                parameterRow(
+                    .multiFingerTapDurationMs,
+                    label: "Tap Duration",
+                    description: "How long a multi-finger tap can take from first finger down to all lifted",
+                    unit: "ms"
+                )
+                parameterRow(
+                    .multiFingerMovementTolerance,
+                    label: "Movement Sensitivity",
+                    description: "How much each finger can shift during a multi-finger tap",
+                    unit: ""
+                )
+                parameterRow(
+                    .multiFingerSpreadMax,
+                    label: "Finger Spread",
+                    description: "How far apart fingers can be in a multi-finger tap",
+                    unit: ""
+                )
+                parameterRow(
+                    .swipeClusterTolerance,
+                    label: "Swipe Group Tightness",
+                    description: "How closely fingers must stay together during a multi-finger swipe",
+                    unit: ""
+                )
+            } header: {
+                sectionHeader("Multi-Finger")
+            }
+
             // MARK: Swipe
             Section {
                 parameterRow(

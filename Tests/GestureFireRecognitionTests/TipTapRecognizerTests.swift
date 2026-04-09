@@ -157,10 +157,10 @@ struct TipTapRejectionTests {
     @Test("Fingers just above proximity threshold → recognized")
     func fingersAboveProximityThreshold() {
         var recognizer = TipTapRecognizer(sensitivity: .defaults)
-        // Distance = ~0.2, above fingerProximityThreshold (0.15)
+        // Distance = ~0.25, above fingerProximityThreshold (0.20)
         let frames = Fixtures.tipTapSequence(
             holdPos: SIMD2(0.3, 0.5),
-            tapPos: SIMD2(0.5, 0.5)
+            tapPos: SIMD2(0.55, 0.5)
         )
         let result = feedAll(&recognizer, frames: frames)
         #expect(result != nil, "Should recognize when fingers are far enough apart")

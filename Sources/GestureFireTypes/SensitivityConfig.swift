@@ -1,8 +1,8 @@
 import Foundation
 
-/// All 10 sensitivity parameters. All fields present from Phase 1 (Plan A).
-/// Phase 1 UI shows TipTap subset; later phases expose more.
-/// Values are direct thresholds — no hidden multipliers.
+/// All 14 sensitivity parameters. Values are direct thresholds — no hidden multipliers.
+/// Parameters 1–10 are shared across recognizers; parameters 11–14 are dedicated
+/// to multi-finger recognizers where shared thresholds proved insufficient on real hardware.
 public struct SensitivityConfig: Sendable, Equatable {
     // Preserved from v0.2 (with hidden multipliers removed)
     public var holdThresholdMs: Double
@@ -18,30 +18,48 @@ public struct SensitivityConfig: Sendable, Equatable {
     public var directionAngleTolerance: Double
     public var tapGroupingWindowMs: Double
 
+    // Multi-finger dedicated (Phase 3 hardening round 2)
+    /// Max time from first finger touchdown to all lifted, for 3/4/5-finger taps.
+    public var multiFingerTapDurationMs: Double
+    /// Max per-finger displacement allowed during a multi-finger tap.
+    public var multiFingerMovementTolerance: Double
+    /// Max pairwise distance between any two fingers in a multi-finger tap cluster.
+    public var multiFingerSpreadMax: Double
+    /// Max distance any finger may be from the cluster centroid during a swipe.
+    public var swipeClusterTolerance: Double
+
     public static let defaults = SensitivityConfig(
         holdThresholdMs: 200,
-        tapMaxDurationMs: 300,
-        movementTolerance: 0.06,
+        tapMaxDurationMs: 400,
+        movementTolerance: 0.08,
         debounceCooldownMs: 500,
         swipeMinDistance: 0.08,
         cornerRegionSize: 0.25,
-        fingerProximityThreshold: 0.15,
+        fingerProximityThreshold: 0.20,
         swipeMaxDurationMs: 800,
         directionAngleTolerance: 30.0,
-        tapGroupingWindowMs: 200
+        tapGroupingWindowMs: 250,
+        multiFingerTapDurationMs: 600,
+        multiFingerMovementTolerance: 0.12,
+        multiFingerSpreadMax: 0.70,
+        swipeClusterTolerance: 0.30
     )
 
     public init(
         holdThresholdMs: Double = 200,
-        tapMaxDurationMs: Double = 300,
-        movementTolerance: Double = 0.06,
+        tapMaxDurationMs: Double = 400,
+        movementTolerance: Double = 0.08,
         debounceCooldownMs: Double = 500,
         swipeMinDistance: Double = 0.08,
         cornerRegionSize: Double = 0.25,
-        fingerProximityThreshold: Double = 0.15,
+        fingerProximityThreshold: Double = 0.20,
         swipeMaxDurationMs: Double = 800,
         directionAngleTolerance: Double = 30.0,
-        tapGroupingWindowMs: Double = 200
+        tapGroupingWindowMs: Double = 250,
+        multiFingerTapDurationMs: Double = 600,
+        multiFingerMovementTolerance: Double = 0.12,
+        multiFingerSpreadMax: Double = 0.70,
+        swipeClusterTolerance: Double = 0.30
     ) {
         self.holdThresholdMs = holdThresholdMs
         self.tapMaxDurationMs = tapMaxDurationMs
@@ -53,6 +71,10 @@ public struct SensitivityConfig: Sendable, Equatable {
         self.swipeMaxDurationMs = swipeMaxDurationMs
         self.directionAngleTolerance = directionAngleTolerance
         self.tapGroupingWindowMs = tapGroupingWindowMs
+        self.multiFingerTapDurationMs = multiFingerTapDurationMs
+        self.multiFingerMovementTolerance = multiFingerMovementTolerance
+        self.multiFingerSpreadMax = multiFingerSpreadMax
+        self.swipeClusterTolerance = swipeClusterTolerance
     }
 
     /// Parameter names for dynamic access (feedback loops, calibration).
@@ -67,6 +89,10 @@ public struct SensitivityConfig: Sendable, Equatable {
         case swipeMaxDurationMs
         case directionAngleTolerance
         case tapGroupingWindowMs
+        case multiFingerTapDurationMs
+        case multiFingerMovementTolerance
+        case multiFingerSpreadMax
+        case swipeClusterTolerance
     }
 
     /// Dynamic value access by parameter name.
@@ -82,6 +108,10 @@ public struct SensitivityConfig: Sendable, Equatable {
         case .swipeMaxDurationMs: swipeMaxDurationMs
         case .directionAngleTolerance: directionAngleTolerance
         case .tapGroupingWindowMs: tapGroupingWindowMs
+        case .multiFingerTapDurationMs: multiFingerTapDurationMs
+        case .multiFingerMovementTolerance: multiFingerMovementTolerance
+        case .multiFingerSpreadMax: multiFingerSpreadMax
+        case .swipeClusterTolerance: swipeClusterTolerance
         }
     }
 
@@ -91,6 +121,7 @@ public struct SensitivityConfig: Sendable, Equatable {
         case holdThresholdMs, tapMaxDurationMs, movementTolerance, debounceCooldownMs
         case swipeMinDistance, cornerRegionSize
         case fingerProximityThreshold, swipeMaxDurationMs, directionAngleTolerance, tapGroupingWindowMs
+        case multiFingerTapDurationMs, multiFingerMovementTolerance, multiFingerSpreadMax, swipeClusterTolerance
     }
 
     /// Returns a new config with one parameter updated (immutable).
@@ -107,6 +138,10 @@ public struct SensitivityConfig: Sendable, Equatable {
         case .swipeMaxDurationMs: copy.swipeMaxDurationMs = value
         case .directionAngleTolerance: copy.directionAngleTolerance = value
         case .tapGroupingWindowMs: copy.tapGroupingWindowMs = value
+        case .multiFingerTapDurationMs: copy.multiFingerTapDurationMs = value
+        case .multiFingerMovementTolerance: copy.multiFingerMovementTolerance = value
+        case .multiFingerSpreadMax: copy.multiFingerSpreadMax = value
+        case .swipeClusterTolerance: copy.swipeClusterTolerance = value
         }
         return copy
     }
@@ -126,6 +161,10 @@ extension SensitivityConfig: Codable {
         swipeMaxDurationMs = try c.decodeIfPresent(Double.self, forKey: .swipeMaxDurationMs) ?? d.swipeMaxDurationMs
         directionAngleTolerance = try c.decodeIfPresent(Double.self, forKey: .directionAngleTolerance) ?? d.directionAngleTolerance
         tapGroupingWindowMs = try c.decodeIfPresent(Double.self, forKey: .tapGroupingWindowMs) ?? d.tapGroupingWindowMs
+        multiFingerTapDurationMs = try c.decodeIfPresent(Double.self, forKey: .multiFingerTapDurationMs) ?? d.multiFingerTapDurationMs
+        multiFingerMovementTolerance = try c.decodeIfPresent(Double.self, forKey: .multiFingerMovementTolerance) ?? d.multiFingerMovementTolerance
+        multiFingerSpreadMax = try c.decodeIfPresent(Double.self, forKey: .multiFingerSpreadMax) ?? d.multiFingerSpreadMax
+        swipeClusterTolerance = try c.decodeIfPresent(Double.self, forKey: .swipeClusterTolerance) ?? d.swipeClusterTolerance
     }
 }
 
@@ -146,6 +185,10 @@ public struct ParameterBounds: Sendable {
         case .swipeMaxDurationMs: ParameterBounds(min: 300, max: 2000)
         case .directionAngleTolerance: ParameterBounds(min: 15, max: 45)
         case .tapGroupingWindowMs: ParameterBounds(min: 50, max: 500)
+        case .multiFingerTapDurationMs: ParameterBounds(min: 300, max: 1200)
+        case .multiFingerMovementTolerance: ParameterBounds(min: 0.05, max: 0.25)
+        case .multiFingerSpreadMax: ParameterBounds(min: 0.30, max: 1.00)
+        case .swipeClusterTolerance: ParameterBounds(min: 0.10, max: 0.50)
         }
     }
 }

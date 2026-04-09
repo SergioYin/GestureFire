@@ -145,8 +145,8 @@ Explicitly **not** in Phase 3. Anything below that turns out to be needed gets a
 | Sample browser / management UI | Phase 1.5 | **Re-deferred to Phase 4**. Phase 3 uses samples for regression only, no user-facing management. |
 | `GestureFireConfig.version` activation | Phase 2 | **Re-deferred to Phase 5**. Unchanged. |
 | Unused-shortcut detection / warning | Phase 2.6 (investigation) | **Re-deferred to Phase 4**. Lives naturally in `FeedbackCorrelator`. |
-| `ShortcutField` pill restyle | Phase 2.6 | **Re-deferred**. Keeps existing look in Phase 3. Target: a future visual-polish pass. |
-| Slider endpoint labels | Phase 2.6 | **Re-deferred**. Same as above. |
+| `ShortcutField` pill restyle | Phase 2.6 | **Re-deferred to Phase 5**. Keeps existing look in Phase 3; fits alongside personalization polish. |
+| Slider endpoint labels | Phase 2.6 | **Re-deferred to Phase 5**. Same rationale as above. |
 | Onboarding step transition animation | Phase 2.6 | **Re-deferred to Phase 5**. |
 | `LogViewerView` alternating row tint | Phase 2.6 | **Re-deferred**. Blocked on custom row rendering; revisit in a future log-viewer phase. |
 
@@ -192,8 +192,9 @@ Items discovered or confirmed deferred by this phase's spec. Every item has a ta
 | Item | Reason Deferred | Target Phase |
 |------|----------------|--------------|
 | Wizard practice step for multi-finger / swipe / corner | Doubles the risk surface of Phase 3; wizard changes have historically been expensive | Phase 5 (alongside personalization polish) |
-| `ShortcutField` pill restyle | Still out of visual-only scope; Phase 3 is not visual | A future visual-polish pass |
-| Slider endpoint labels | Same as above | A future visual-polish pass |
+| `ShortcutField` pill restyle | Still out of visual-only scope; Phase 3 is not visual | Phase 5 |
+| Slider endpoint labels | Same as above | Phase 5 |
+| Multi-finger swipe usability: natural hand posture tolerance | Cluster tolerance + centroid direction too strict for natural gestures; needs Phase 4 rejection-reason data | Phase 4 (Smart Tuning) |
 | `LogViewerView` alternating row tint | Requires custom row rendering outside `List` | Phase 4 (alongside log viewer expansion) |
 | Onboarding step transition animation | Behavior change, not gesture vocabulary | Phase 5 |
 | Card hover effects, custom dark/light specialization | Pure polish, not blocking | Phase 5 |
@@ -207,4 +208,140 @@ Items discovered or confirmed deferred by this phase's spec. Every item has a ta
 
 ## Review / Retrospective
 
-> Fill after implementation, before acceptance. Empty until then.
+### Implementation History
+
+| Step | Commit | Summary |
+|------|--------|---------|
+| 0 | `b2c74b4` | Replay regression canary + TipTap fixture bundle (4 fixtures) |
+| 1 | `4f74e2c` | `Geometry.nearestCardinal` + TipTap `directionAngleTolerance` wiring |
+| 2 | `b25c0d1` | `RecognitionLoop` → priority-ordered multi-recognizer array |
+| 3 | `cb6b1a7` | `CornerTapRecognizer` + 4 corner tap fixtures |
+| 4 | `5ff4d81` | `MultiFingerTapRecognizer` + 3 multi-finger tap fixtures |
+| 5 | `449b576` | `MultiFingerSwipeRecognizer` + 8 multi-finger swipe fixtures |
+| 6 | `e889322` | Settings UI extension (5 family sections, Cmd+1..5, Advanced 10-param) |
+| 7 | `a3ed884` | `docs/architecture/overview.md` synced with reality |
+| 8 | (uncommitted) | Accessibility verification pass — tactical fixes to StatusSettingsView + OnboardingView |
+| 9 | (this step) | Phase 3 close-out: retrospective, acceptance doc |
+| H1 | (hardening round 1) | `.breaking` state in active filter, static gesture instructions, conservative shared default relaxation |
+| H2 | (hardening round 2) | 4 explicit dedicated multi-finger params, eliminated hidden ×3 multiplier, AdvancedSettingsView Multi-Finger section |
+| H3 | (accessibility hardening) | Replaced custom `SettingsTabButton` (`.buttonStyle(.plain)`) with focusable `SettingsTabItem` using `.focusable()` + `@FocusState` + `onMoveCommand` + `onKeyPress`. Tab bar now keyboard-navigable and VoiceOver-accessible without requiring macOS "Keyboard Navigation" system setting. |
+
+### Stats
+
+| Metric | Before Phase 3 | After Phase 3 | Delta |
+|--------|---------------|---------------|-------|
+| Source LOC | ~4,455 | ~5,428 | +973 |
+| Test LOC | ~2,100 | ~3,821 | +1,721 |
+| Tests | 153 in 30 suites | 215 in 44 suites | +62 tests, +14 suites |
+| Recognizers | 1 (TipTap) | 4 (CornerTap, MultiFingerTap, MultiFingerSwipe, TipTap) | +3 |
+| GestureType cases | 4 | 19 | +15 |
+| Replay fixtures | 0 | 19 (4 TipTap + 4 CornerTap + 3 MultiFingerTap + 8 MultiFingerSwipe) | +19 |
+| SensitivityConfig params active | 4/10 | 14/14 (10 shared + 4 multi-finger dedicated) | +10 |
+| GestureFireRecognition files | 3 | 7 | +4 |
+| Settings gesture families | 1 (flat list) | 5 (TipTap / Multi-Finger Tap / 3F Swipe / 4F Swipe / Corner Tap) | +4 |
+
+### Scope Decisions Made During Implementation
+
+1. **`fingerProximityThreshold` single-knob decision → dedicated parameters (S6 evaluation + Round 2 hardening)**: Initially kept as a single parameter with a hidden 3× multiplier in MultiFingerTap. Real-device testing revealed multi-finger gestures were unusable with shared parameters. Round 2 hardening introduced 4 explicit dedicated parameters (`multiFingerTapDurationMs`, `multiFingerMovementTolerance`, `multiFingerSpreadMax`, `swipeClusterTolerance`) to replace all hidden multipliers and give multi-finger recognizers independent tuning knobs. The hidden `fingerProximityThreshold × 3` in MultiFingerTap was replaced by `multiFingerSpreadMax`.
+
+2. **MultiFingerSwipe `initialCentroid` recomputation (Step 5)**: When new fingers join inside the grouping window mid-motion, `initialCentroid` is recomputed from all tracked start positions. This was the critical design insight that resolved the grouping + motion conflict identified in the risk matrix.
+
+3. **Silent-reset vs rejection pattern**: Recognizers that see touches outside their finger-count domain (e.g. MultiFingerTap seeing 2 fingers, MultiFingerSwipe seeing 5) silently reset to idle instead of emitting a rejection. This prevents noise in the pipeline and preserves clean boundary separation between recognizer territories.
+
+4. **`RejectionReason` as struct**: Confirmed that `RejectionReason` is a struct with a `label: String`, not an enum. New rejection labels (`fingersTooSpread`, `tapTooSlow`, `fingerMoved`, `clusterBroken`, `swipeTooSlow`, `directionAmbiguous`) were added as static factory methods without schema change.
+
+5. **`KeyEquivalent` + `LocalizedStringKey` deprecation**: `KeyEquivalent.character` interpolated into a `LocalizedStringKey` triggers a deprecation warning. Workaround: cast to `String(...)` and use `Text(verbatim:)`. Documented in `overview.md` Implementation Notes.
+
+### Bugs Found and Fixed
+
+| Bug | Step | Resolution |
+|-----|------|------------|
+| `KeyEquivalent.character` deprecation warning in accessibility hint | 6 | `Text(verbatim: ...)` workaround |
+| StatusSettingsView section headers missing `.isHeader` trait | 8 | Added `.accessibilityAddTraits(.isHeader)` |
+| StatusSettingsView decorative icons read by VoiceOver | 8 | Added `.accessibilityHidden(true)` + row-level `.accessibilityElement(children: .combine)` |
+| OnboardingView hero icons read by VoiceOver | 8 | Added `.accessibilityHidden(true)` to decorative ZStacks |
+| OnboardingView step titles missing `.isHeader` | 8 | Added `.accessibilityAddTraits(.isHeader)` |
+| StepIndicator fragments not grouped for VoiceOver | 8 | Combined per-step elements with accessibility labels + step value |
+| PresetCard icon + text not cohesive for VoiceOver | 8 | Added `accessibilityLabel`, `accessibilityHint`, `.isSelected` trait |
+| CalibrationRow attempt icons invisible to VoiceOver | 8 | Combined row with descriptive label including attempt count |
+| Settings tab bar unreachable by Tab key and VoiceOver | H3 | `.buttonStyle(.plain)` removed buttons from macOS focus chain. Replaced with `.focusable()` + `@FocusState` + `onMoveCommand` + `onKeyPress` |
+
+### Risks Realized
+
+| Risk (from spec) | Occurred? | Notes |
+|-------------------|-----------|-------|
+| Multi-recognizer priority causes TipTap false negatives | No | Replay canary held green across all 8 steps |
+| `directionAngleTolerance` changes TipTap recognition | No | Default 30° is permissive; all existing fixtures passed |
+| Multi-finger misfires on palm rest | Not tested in initial implementation | Round 2 hardening with dedicated params improved real-device usability significantly |
+| 3-finger swipe conflicts with macOS system gestures | Investigated — not the cause of Round 1/2 failures | Confirmed not the root cause of recognition failures; macOS system gestures were disabled during testing. Still documented as a mandatory pre-verification check for other machines. |
+| `fingerProximityThreshold` dual-use contradictory | No | Single-knob worked; no split needed |
+| Gestures tab visually cluttered | No | 5 family sections with `.formStyle(.grouped)` work well |
+| Accessibility verification surfaces a blocker | Yes → resolved | Step 8 structural fixes were insufficient: `.buttonStyle(.plain)` removed tab bar from macOS focus chain entirely. Required H3 hardening to replace Button with `.focusable()` views + `@FocusState` + `onMoveCommand`. M4 passed after H3. |
+
+### Carry-Over Status (from spec → resolution)
+
+| Item | Spec Status | Final Resolution |
+|------|-------------|-----------------|
+| `directionAngleTolerance` wiring | In scope (S6) | ✅ Shipped in Step 1 |
+| `Cmd+1..5` keyboard cycling | In scope (S6) | ✅ Shipped in Step 6 |
+| Tab/VoiceOver verification | In scope (S7) | ✅ Step 8 structural fixes + H3 focusable tab bar. M4 passed. |
+| `fingerProximityThreshold` dual-use evaluation | In scope (S6) | ✅ Resolved: real-device testing proved single-knob insufficient → 4 dedicated multi-finger params added in Round 2 hardening |
+| `ShortcutField` pill restyle | Re-deferred | Re-deferred to Phase 5 |
+| Slider endpoint labels | Re-deferred | Re-deferred to Phase 5 |
+| `LogViewerView` alternating row tint | Re-deferred | Re-deferred to Phase 4 |
+| Onboarding step transition animation | Re-deferred | Re-deferred to Phase 5 |
+| `FileLogger` thread safety / force-unwrap | Re-deferred | Re-deferred to Phase 4 |
+| `AppCoordinator.stop()` race | Re-deferred | Re-deferred to Phase 4 |
+| Sample browser / management UI | Re-deferred | Re-deferred to Phase 4 |
+| Gesture animation previews | Re-deferred | Re-deferred to Phase 5 |
+
+### What Went Well
+
+- **Replay canary as regression gate**: The Step 0 investment in replay fixtures paid off immediately — every subsequent step had an automatic safety net. The per-recognizer fixture rule ensured coverage grew monotonically.
+- **Strict RED-first TDD**: Writing failing tests before implementation caught design issues early (e.g. the staggered touchdown trace in Step 4, the grouping+motion conflict in Step 5).
+- **Priority-ordered recognizer array**: Simple, deterministic, and easy to reason about. No complex conflict resolution needed.
+- **Step boundaries**: The 9-step plan with explicit scope fences prevented scope creep and made each step reviewable in isolation.
+
+### Real-Device Testing Results (Post-Hardening)
+
+#### Round 1 (conservative shared defaults + `.breaking` filter)
+- ✅ 3-Finger Tap: now works
+- ❌ 4-Finger Tap, 5-Finger Tap: still fails (shared defaults not relaxed enough)
+- ❌ 3-Finger Swipe: still fails (cluster tolerance too tight)
+
+#### Round 2 (4 dedicated multi-finger parameters)
+- ✅ 3-Finger Tap: still works
+- ✅ 4-Finger Tap: now works
+- ✅ 5-Finger Tap: now works
+- ✅ 3-Finger Swipe: now works
+
+#### Usability Finding: Multi-finger swipe still sensitive to finger arrangement
+After Round 2, multi-finger gestures are **functional** but not yet fully natural. Specific observation: 4-finger swipe up requires fingers to be arranged relatively evenly and close to horizontal alignment for stable triggering. Under natural hand posture, recognition is still pickier than ideal.
+
+**Root cause analysis**: The `swipeClusterTolerance` (default 0.30) and cluster integrity check assume fingers stay within a tight radius from the centroid throughout the motion. During natural swipes, outer fingers (especially pinky and index) tend to drift further from the centroid than the current tolerance allows. Additionally, the direction calculation uses centroid displacement, which can be affected by non-uniform finger movement — if one finger leads while others lag, the centroid path is not as clean as when all fingers move in lockstep.
+
+**Potential optimization directions** (not in Phase 3 scope):
+1. Relax `swipeClusterTolerance` further or make it direction-dependent (vertical swipes may need more lateral tolerance)
+2. Use per-finger displacement vectors instead of centroid-only for direction determination
+3. Allow progressive cluster loosening as the swipe progresses (tight at start, looser during motion)
+4. Weight centroid by finger confidence or movement coherence
+
+**Classification**: Not a Phase 3 blocker — gestures are functional. Logged as a usability improvement for Phase 4 (Smart Tuning) where rejection-reason tracking and auto-adjust can provide data-driven tuning.
+
+### System Gesture Conflict: Documentation and Verification Requirement
+
+macOS system trackpad gestures can intercept multi-finger swipes before GestureFire receives the touch events. This was **investigated during testing and confirmed NOT to be the root cause** of the Round 1/2 recognition failures (system gestures were disabled on the test machine).
+
+However, this remains a **mandatory pre-verification environmental check** for any machine running GestureFire:
+- **3-finger swipe**: Conflicts with Mission Control (swipe up), App Exposé (swipe down), and Switch Spaces (swipe left/right). Path: System Settings → Trackpad → More Gestures.
+- **4-finger swipe**: Conflicts with the same system gestures if the user has configured them for 4 fingers.
+- **Recommendation**: Before multi-finger swipe verification, confirm that conflicting macOS system gestures are disabled or set to a different finger count.
+
+This is documented in the Settings UI gesture family captions (added in Hardening Round 1) and in the acceptance doc (M1 prerequisites).
+
+### What Could Be Improved
+
+- **Accessibility was Step 8 instead of incremental**: Finding 8+ issues across two hardening rounds (Step 8 annotations + H3 focus rewrite) confirms accessibility must be part of the definition-of-done for each UI step. `.buttonStyle(.plain)` was the root cause of tab bar inaccessibility — this should have been caught when the custom tab bar was introduced in Phase 2.6.
+- **Real-device testing should happen earlier**: The three hardening rounds (H1 + H2 for gestures, H3 for accessibility) were all discovered only during real-device testing at close-out. Future phases should include a real-device checkpoint mid-implementation.
+- **Hidden multipliers were a design smell**: The original `fingerProximityThreshold × 3` in MultiFingerTap was expedient but violated the "all parameters explicit and tunable" principle. Round 2 fixed this, but it should have been caught during code review in Step 4.
+- **Annotation != accessibility**: Adding `.accessibilityLabel` and `.isSelected` traits to a fundamentally inaccessible structure (`.plain` buttons) does not make it accessible. The structure itself must participate in the focus system.

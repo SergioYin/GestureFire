@@ -9,20 +9,20 @@ struct SensitivityConfigDefaultsTests {
     func defaults() {
         let config = SensitivityConfig.defaults
         #expect(config.holdThresholdMs == 200)
-        #expect(config.tapMaxDurationMs == 300)
-        #expect(config.movementTolerance == 0.06)
+        #expect(config.tapMaxDurationMs == 400)
+        #expect(config.movementTolerance == 0.08)
         #expect(config.debounceCooldownMs == 500)
         #expect(config.swipeMinDistance == 0.08)
         #expect(config.cornerRegionSize == 0.25)
-        #expect(config.fingerProximityThreshold == 0.15)
+        #expect(config.fingerProximityThreshold == 0.20)
         #expect(config.swipeMaxDurationMs == 800)
         #expect(config.directionAngleTolerance == 30.0)
-        #expect(config.tapGroupingWindowMs == 200)
+        #expect(config.tapGroupingWindowMs == 250)
     }
 
     @Test("Has exactly 10 parameters")
     func parameterCount() {
-        #expect(SensitivityConfig.Parameter.allCases.count == 10)
+        #expect(SensitivityConfig.Parameter.allCases.count == 14)
     }
 }
 
@@ -102,7 +102,7 @@ struct SensitivityConfigCodableTests {
         let json = #"{"holdThresholdMs": 150}"#
         let config = try JSONDecoder().decode(SensitivityConfig.self, from: Data(json.utf8))
         #expect(config.holdThresholdMs == 150)
-        #expect(config.tapMaxDurationMs == 300) // default
+        #expect(config.tapMaxDurationMs == 400) // default
         #expect(config.directionAngleTolerance == 30.0) // default
     }
 }

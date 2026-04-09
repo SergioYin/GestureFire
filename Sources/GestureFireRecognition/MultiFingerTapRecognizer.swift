@@ -45,26 +45,33 @@ public struct MultiFingerTapRecognizer: GestureRecognizer {
 
     public mutating func processFrame(_ frame: TouchFrame) -> RecognitionResult {
         let now = frame.timestamp
-        let tolerance = Float(sensitivity.movementTolerance)
-        let tapMaxSec = sensitivity.tapMaxDurationMs / 1000.0
+        let tolerance = Float(sensitivity.multiFingerMovementTolerance)
+        let tapMaxSec = sensitivity.multiFingerTapDurationMs / 1000.0
         let cooldownSec = sensitivity.debounceCooldownMs / 1000.0
         let groupingWindowSec = sensitivity.tapGroupingWindowMs / 1000.0
-        let maxSpread = Float(sensitivity.fingerProximityThreshold) * 3.0
+        let maxSpread = Float(sensitivity.multiFingerSpreadMax)
 
-        let active = frame.points.filter { $0.state == .touching || $0.state == .making }
+        // Include .breaking so staggered lifts don't cause premature finger-count
+        // drops on real hardware where fingers transition through breaking → leaving
+        // over 1-2 frames.
+        let active = frame.points.filter {
+            $0.state == .touching || $0.state == .making || $0.state == .breaking
+        }
+        // For grouping entry, only use firmly-down fingers (not breaking).
+        let firmlyDown = frame.points.filter { $0.state == .touching || $0.state == .making }
 
         switch state {
         case .idle:
-            if active.isEmpty { return .empty }
+            if firmlyDown.isEmpty { return .empty }
             var fingers: [Int32: TrackedFinger] = [:]
-            for p in active {
+            for p in firmlyDown {
                 fingers[p.id] = TrackedFinger(id: p.id, position: p.position, time: now)
             }
             if let spread = maxPairwiseDistance(fingers: fingers), spread > maxSpread {
                 state = .cooldown(until: now.addingTimeInterval(cooldownSec))
                 return .rejected([RejectionReason(
                     recognizer: "MultiFingerTap",
-                    parameter: "fingerProximityThreshold",
+                    parameter: "multiFingerSpreadMax",
                     threshold: Double(maxSpread),
                     actual: Double(spread),
                     label: "fingersTooSpread"
@@ -78,19 +85,19 @@ public struct MultiFingerTapRecognizer: GestureRecognizer {
             return .empty
 
         case .grouping(var fingers, let firstTouchdown, var peakCount):
-            // Build updated fingers set. Detect late arrivals (past grouping window).
+            // Build updated fingers set using `active` (includes .breaking) so
+            // staggered lifts don't cause premature "all lifted" evaluation.
+            // New finger detection uses `firmlyDown` only — a finger in .breaking
+            // should not be treated as a new arrival.
             var updated: [Int32: TrackedFinger] = [:]
             for p in active {
                 if var existing = fingers[p.id] {
                     existing.lastPosition = p.position
                     existing.lastTime = now
                     updated[p.id] = existing
-                } else {
-                    // New finger appeared
+                } else if p.state == .touching || p.state == .making {
+                    // New finger (firmly down, not breaking)
                     if now.timeIntervalSince(firstTouchdown) > groupingWindowSec {
-                        // Late touchdown — abort into cooldown so the current
-                        // touches cannot re-enter grouping once the old finger
-                        // finally lifts.
                         state = .cooldown(until: now.addingTimeInterval(cooldownSec))
                         return .empty
                     }
@@ -103,8 +110,8 @@ public struct MultiFingerTapRecognizer: GestureRecognizer {
                 state = .cooldown(until: now.addingTimeInterval(cooldownSec))
                 return .rejected([RejectionReason(
                     recognizer: "MultiFingerTap",
-                    parameter: "movementTolerance",
-                    threshold: sensitivity.movementTolerance,
+                    parameter: "multiFingerMovementTolerance",
+                    threshold: sensitivity.multiFingerMovementTolerance,
                     actual: Double(finger.displacement),
                     label: "fingerMoved"
                 )])
@@ -115,7 +122,7 @@ public struct MultiFingerTapRecognizer: GestureRecognizer {
                 state = .cooldown(until: now.addingTimeInterval(cooldownSec))
                 return .rejected([RejectionReason(
                     recognizer: "MultiFingerTap",
-                    parameter: "fingerProximityThreshold",
+                    parameter: "multiFingerSpreadMax",
                     threshold: Double(maxSpread),
                     actual: Double(spread),
                     label: "fingersTooSpread"
@@ -129,8 +136,8 @@ public struct MultiFingerTapRecognizer: GestureRecognizer {
                 state = .cooldown(until: now.addingTimeInterval(cooldownSec))
                 return .rejected([RejectionReason(
                     recognizer: "MultiFingerTap",
-                    parameter: "tapMaxDurationMs",
-                    threshold: sensitivity.tapMaxDurationMs,
+                    parameter: "multiFingerTapDurationMs",
+                    threshold: sensitivity.multiFingerTapDurationMs,
                     actual: now.timeIntervalSince(firstTouchdown) * 1000.0,
                     label: "tapTooSlow"
                 )])
@@ -158,11 +165,11 @@ public struct MultiFingerTapRecognizer: GestureRecognizer {
 
         case .cooldown(let until):
             if now < until { return .empty }
-            // Inline idle re-entry (avoid recursive mutating call).
+            // Inline idle re-entry — use firmlyDown (not breaking) for new grouping.
             state = .idle
-            if active.isEmpty { return .empty }
+            if firmlyDown.isEmpty { return .empty }
             var fingers: [Int32: TrackedFinger] = [:]
-            for p in active {
+            for p in firmlyDown {
                 fingers[p.id] = TrackedFinger(id: p.id, position: p.position, time: now)
             }
             if let spread = maxPairwiseDistance(fingers: fingers), spread > maxSpread {

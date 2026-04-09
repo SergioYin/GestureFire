@@ -1,7 +1,7 @@
 # GestureFire v1 Roadmap
 
 > Canonical phase plan. Supersedes all earlier planning discussions.
-> Updated: 2026-04-03
+> Updated: 2026-04-09
 
 ## Phase Summary
 
@@ -13,7 +13,7 @@
 | 2 | Experience Polish | Sound feedback, status panel, log viewer, launch-at-login | ✅ Done |
 | 2.5 | UI Structure Polish | Settings restructure, menu bar simplification, onboarding copy | ✅ Done |
 | 2.6 | Visual Polish | Design system, surface hierarchy, status weight, spacing, wizard stability, custom settings tab bar | ✅ Done |
-| 3 | More Gestures | Multi-finger tap, multi-finger swipe, corner tap | ⬜ |
+| 3 | More Gestures | Multi-finger tap, multi-finger swipe, corner tap, accessibility hardening | ✅ Done |
 | 4 | Smart Tuning | Rejection tracking, keyboard correlation, auto-adjust parameters | ⬜ |
 | 5 | Personalization | Profiles, per-app mappings, import/export | ⬜ |
 
@@ -90,45 +90,22 @@
 
 ---
 
-## Phase 3: More Gestures ⬜
+## Phase 3: More Gestures ✅
 
 **Goal:** Expand gesture vocabulary beyond TipTap.
 
-### Scope
+**Delivered:** 4 recognizers (CornerTap, MultiFingerTap, MultiFingerSwipe, TipTap), 19 gesture types, 14 sensitivity parameters (10 shared + 4 multi-finger dedicated), 5 gesture family sections in Settings, focusable custom tab bar with keyboard/VoiceOver support, 19 replay regression fixtures, 215 tests in 44 suites.
 
-- `MultiFingerTapRecognizer` — 3/4/5-finger tap
-- `MultiFingerSwipeRecognizer` — 3/4-finger swipe (up/down/left/right)
-- `CornerTapRecognizer` — tap in trackpad corners
-- UI: new sections in Settings for each gesture type
-- Sensitivity UI exposes Phase 2+ parameters (`fingerProximityThreshold`, `swipeMinDistance`, `swipeMaxDurationMs`, `cornerRegionSize`)
+**Hardening rounds:**
+- H1: `.breaking` state filter, conservative shared default relaxation → 3F Tap fixed
+- H2: 4 explicit dedicated multi-finger parameters → 4F/5F Tap, 3F Swipe fixed
+- H3: `.focusable()` + `@FocusState` + `onMoveCommand` tab bar → M4 accessibility passed
 
-### Carry-Over from Phase 2
+**Known non-blocking limitations:** Multi-finger swipe sensitive to finger arrangement (deferred to Phase 4 Smart Tuning). macOS system gesture conflicts documented as mandatory pre-verification check.
 
-| Item | Priority | Notes |
-|------|----------|-------|
-| `directionAngleTolerance` not wired | P1 | Wire into `TipTapRecognizer.computeDirection()` when adding swipe recognizers with angular thresholds |
-| Gesture animation previews | P2 | More valuable with expanded gesture vocabulary |
-| `FileLogger` thread safety | P2 | Evaluate when recognizers may log from background |
-| `FileLogger.log()` force-unwrap | P3 | Fix alongside FileLogger refactoring |
-| `AppCoordinator.stop()` race | P2 | Multi-recognizer architecture amplifies the issue |
-| SwiftUI view unit tests | P3 | Consider snapshot testing for gesture-specific UI |
-| LogEntry stable identity (UUID) | P3 | Fix when expanding log viewer |
-| `InMemoryPersistence.Storage @unchecked Sendable` | P3 | Convert to `@MainActor`-constrained class |
-| NSPanel sound (if still present) | P0 | Resolved in Phase 2.6 — symptom was CGEvent funk from target app, not panel. No further action. |
-| Settings tab bar `Cmd+1..5` cycling | P2 | Custom tab bar lost native `TabView` keyboard cycling. Add `.keyboardShortcut` to each `SettingsTabButton`. |
-| Tab key / VoiceOver verification (Status tab ScrollView + custom Settings tab bar) | P1 | Manual accessibility pass before shipping new gesture UI that inherits these patterns |
-| ShortcutField pill restyle | P2 | Changes interaction affordance — carried over from Phase 2.6 (visual-only) |
-| Slider endpoint labels | P2 | Carried over from Phase 2.6 |
-| Onboarding step transition animation | P3 | Behavior change — carried over from Phase 2.6 |
-| LogViewerView alternating row tint | P3 | Requires custom row rendering outside `List` — carried over from Phase 2.6 |
+**See:** `docs/phases/PHASE-3.md` for full spec and retrospective, `docs/PHASE-3-ACCEPTANCE.md` for verification checklist (M1–M5 all passed 2026-04-09).
 
-### Verification Criteria
-
-- [ ] Each new recognizer has ≥10 tests with fixture sequences
-- [ ] `RecognitionLoop` handles multiple recognizers (priority order)
-- [ ] Settings UI shows all gesture types with shortcut mapping
-- [ ] Sensitivity UI shows all 10 parameters
-- [ ] No regression in TipTap recognition (replay baseline samples from 1.5)
+**Key files:** 46 source files, 30 test files, ~5,428 source LOC, ~3,821 test LOC.
 
 ---
 
