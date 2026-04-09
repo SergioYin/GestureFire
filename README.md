@@ -1,51 +1,72 @@
 # GestureFire
 
-GestureFire is a macOS menu bar app for trackpad gesture recognition and keyboard shortcut triggering.
+Custom macOS trackpad gestures for keyboard shortcuts.
 
-It reached its MVP milestone at the end of Phase 3:
+[中文说明](README.zh-CN.md) | [日本語](README.ja.md)
 
-- 4 recognizers: `TipTap`, `CornerTap`, `MultiFingerTap`, `MultiFingerSwipe`
-- 19 gesture types
-- Onboarding, diagnostics, sound feedback, status panel, logs, launch-at-login
-- Replay-based regression safety with checked-in `.gesturesample` fixtures
-- 215 tests across 44 suites
+GestureFire is a macOS menu bar app for creating custom trackpad gestures that trigger keyboard shortcuts. It supports TipTap, corner tap, multi-finger tap, and multi-finger swipe, with replay-backed testing and a growing tuning pipeline.
 
-## What It Does
+## Why GestureFire
 
-GestureFire listens to trackpad touch data, recognizes configured gestures, and sends mapped keyboard shortcuts to the foreground app.
+macOS gives you a fixed set of trackpad gestures. GestureFire is for people who want their own:
 
-Current gesture families:
+- Trigger app shortcuts from custom gestures
+- Use corner taps and multi-finger gestures beyond the built-in macOS set
+- Tune gesture sensitivity instead of accepting one-size-fits-all behavior
+- Keep recognition logic testable with replay fixtures and deterministic timing
 
-- TipTap: 4 directions
-- Corner Tap: 4 corners
-- Multi-Finger Tap: 3 / 4 / 5 fingers
-- Multi-Finger Swipe: 3 / 4 fingers x 4 directions
+This project has reached its MVP milestone at the end of Phase 3.
 
-## MVP Status
+## What You Can Do Today
 
-This repository currently represents a solid MVP:
+- Map **19 gesture types** to keyboard shortcuts
+- Use **4 recognizers**: `TipTap`, `CornerTap`, `MultiFingerTap`, `MultiFingerSwipe`
+- Configure gestures from a menu bar app
+- Walk through first-run onboarding and practice
+- Inspect diagnostics, logs, sound feedback, and status panel behavior
+- Run **215 tests across 44 suites**
+- Protect recognition changes with **19 replay fixtures**
 
-- Core recognition pipeline is implemented
-- Real-device validation has been completed
-- Settings and advanced tuning UI are in place
-- Accessibility baseline for the current UI has been verified
+## Gesture Families
+
+- **TipTap**: 4 directional gestures
+- **Corner Tap**: top-left, top-right, bottom-left, bottom-right
+- **Multi-Finger Tap**: 3-finger, 4-finger, 5-finger
+- **Multi-Finger Swipe**: 3-finger and 4-finger swipes in 4 directions
+
+## Who This Is For
+
+- macOS power users
+- developers who live on the trackpad
+- people who want custom trackpad shortcuts without a giant automation suite
+- anyone interested in gesture recognition, replay-based testing, and tuning systems
+
+## Current MVP Status
+
+GestureFire is now a solid MVP:
+
+- core recognition pipeline implemented
+- real-device validation completed
+- accessibility baseline verified for the current Settings flow
+- advanced sensitivity controls in place
+- replay-based regression safety established
 
 Known limitations:
 
-- Multi-finger swipe is still somewhat sensitive to finger arrangement
+- multi-finger swipe still benefits from deliberate finger alignment
 - macOS system gestures can conflict with 3- and 4-finger swipes
-- Onboarding practice currently focuses on TipTap only
+- onboarding practice currently focuses on TipTap only
 
-These are tracked in later phases rather than blocking the MVP milestone.
+These are tracked as later-phase improvements rather than blocking the MVP milestone.
 
-## Requirements
+## Quick Start
+
+### Requirements
 
 - macOS 14+
 - Xcode installed at `/Applications/Xcode.app`
 
-## Build
-
-From the project root:
+### Build
 
 ```bash
 swift build
@@ -59,7 +80,7 @@ Release app bundle:
 ./scripts/build-app.sh release
 ```
 
-## Test
+### Test
 
 Swift Testing requires Xcode's bundled toolchain:
 
@@ -101,6 +122,6 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 - Phase 4: Smart Tuning — next
 - Phase 5: Personalization — planned
 
-## Notes
+## Technical Notes
 
-GestureFire depends on OpenMultitouchSupport for raw trackpad input. Recognition code stays isolated from OMS-specific APIs through the `TouchFrame` abstraction, which is also what enables deterministic replay tests.
+GestureFire depends on OpenMultitouchSupport for raw trackpad input. Recognition code stays isolated from OMS-specific APIs through the `TouchFrame` abstraction, which also enables deterministic replay tests and future calibration work.
