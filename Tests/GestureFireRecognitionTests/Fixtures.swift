@@ -120,6 +120,59 @@ enum Fixtures {
         return frames
     }
 
+    /// Generate a multi-finger swipe frame sequence:
+    /// - All N fingers touch down at `motionStartMs` clustered around `fromCentroid`
+    ///   using `clusterSpacing` (small enough that the cluster radius stays well
+    ///   within `fingerProximityThreshold`).
+    /// - Over `durationMs`, the cluster translates rigidly so that the centroid
+    ///   moves linearly from `fromCentroid` to `toCentroid`.
+    /// - Post-lift empty frames so the recognizer observes the lift.
+    static func multiFingerSwipeSequence(
+        count: Int,
+        fromCentroid: SIMD2<Float>,
+        toCentroid: SIMD2<Float>,
+        motionStartMs: Int = 0,
+        durationMs: Int = 160,
+        postLiftMs: Int = 200,
+        frameIntervalMs: Int = 16,
+        clusterSpacing: Float = 0.03
+    ) -> [TouchFrame] {
+        precondition(count >= 2 && count <= 5)
+        let offsets = multiFingerCluster(count: count, centroid: SIMD2(0, 0), spacing: clusterSpacing)
+        var frames: [TouchFrame] = []
+
+        // Pre-roll empty frames if motionStartMs > 0
+        var t = 0
+        while t < motionStartMs {
+            frames.append(frame([], at: time(t)))
+            t += frameIntervalMs
+        }
+
+        // Motion phase
+        t = motionStartMs
+        let motionEnd = motionStartMs + durationMs
+        while t <= motionEnd {
+            let progress = Float(t - motionStartMs) / Float(durationMs)
+            let cx = fromCentroid.x + (toCentroid.x - fromCentroid.x) * progress
+            let cy = fromCentroid.y + (toCentroid.y - fromCentroid.y) * progress
+            let pts = offsets.enumerated().map { idx, off in
+                point(id: Int32(idx + 1), x: cx + off.x, y: cy + off.y, at: time(t))
+            }
+            frames.append(frame(pts, at: time(t)))
+            t += frameIntervalMs
+        }
+
+        // Post-lift phase
+        t = motionEnd + frameIntervalMs
+        let postEnd = motionEnd + postLiftMs
+        while t <= postEnd {
+            frames.append(frame([], at: time(t)))
+            t += frameIntervalMs
+        }
+
+        return frames
+    }
+
     /// Convenience: N fingers clustered around a centroid with small offsets.
     /// Produces positions that fit comfortably within the default
     /// `fingerProximityThreshold × 3` spread for multi-finger taps.

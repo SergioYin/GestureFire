@@ -126,4 +126,43 @@ struct FixtureGenerator {
             try Self.write(sample, to: dir, name: name)
         }
     }
+
+    // MARK: - MultiFingerSwipe
+
+    @Test("Generate MultiFingerSwipe fixtures")
+    func generateMultiFingerSwipe() throws {
+        guard Self.isEnabled else { return }
+
+        let dir = Self.fixtureDir("multifingerswipe")
+        let sensitivity = SensitivityConfig.defaults
+        let recordedAt = Date(timeIntervalSinceReferenceDate: 0)
+
+        // Each entry: (name, gesture, count, fromCentroid, toCentroid)
+        let variants: [(String, GestureType, Int, SIMD2<Float>, SIMD2<Float>)] = [
+            ("multifingerswipe-3-right", .multiFingerSwipe3Right, 3, SIMD2(0.3, 0.5), SIMD2(0.7, 0.5)),
+            ("multifingerswipe-3-left",  .multiFingerSwipe3Left,  3, SIMD2(0.7, 0.5), SIMD2(0.3, 0.5)),
+            ("multifingerswipe-3-up",    .multiFingerSwipe3Up,    3, SIMD2(0.5, 0.3), SIMD2(0.5, 0.7)),
+            ("multifingerswipe-3-down",  .multiFingerSwipe3Down,  3, SIMD2(0.5, 0.7), SIMD2(0.5, 0.3)),
+            ("multifingerswipe-4-right", .multiFingerSwipe4Right, 4, SIMD2(0.3, 0.5), SIMD2(0.7, 0.5)),
+            ("multifingerswipe-4-left",  .multiFingerSwipe4Left,  4, SIMD2(0.7, 0.5), SIMD2(0.3, 0.5)),
+            ("multifingerswipe-4-up",    .multiFingerSwipe4Up,    4, SIMD2(0.5, 0.3), SIMD2(0.5, 0.7)),
+            ("multifingerswipe-4-down",  .multiFingerSwipe4Down,  4, SIMD2(0.5, 0.7), SIMD2(0.5, 0.3)),
+        ]
+
+        for (name, gesture, count, from, to) in variants {
+            let frames = Fixtures.multiFingerSwipeSequence(
+                count: count,
+                fromCentroid: from,
+                toCentroid: to
+            )
+            let header = SampleHeader(
+                gestureType: gesture,
+                sensitivity: sensitivity,
+                recordedAt: recordedAt,
+                frameCount: frames.count
+            )
+            let sample = GestureSample(header: header, frames: frames)
+            try Self.write(sample, to: dir, name: name)
+        }
+    }
 }

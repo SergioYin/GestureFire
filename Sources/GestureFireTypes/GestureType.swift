@@ -19,6 +19,16 @@ public enum GestureType: String, Sendable, Codable, CaseIterable, Hashable {
     case multiFingerTap3
     case multiFingerTap4
     case multiFingerTap5
+
+    // Phase 3: multi-finger swipes (3 or 4 fingers translating in a cardinal direction)
+    case multiFingerSwipe3Left
+    case multiFingerSwipe3Right
+    case multiFingerSwipe3Up
+    case multiFingerSwipe3Down
+    case multiFingerSwipe4Left
+    case multiFingerSwipe4Right
+    case multiFingerSwipe4Up
+    case multiFingerSwipe4Down
 }
 
 extension GestureType {
@@ -35,6 +45,14 @@ extension GestureType {
         case .multiFingerTap3: "3-Finger Tap"
         case .multiFingerTap4: "4-Finger Tap"
         case .multiFingerTap5: "5-Finger Tap"
+        case .multiFingerSwipe3Left: "3-Finger Swipe Left"
+        case .multiFingerSwipe3Right: "3-Finger Swipe Right"
+        case .multiFingerSwipe3Up: "3-Finger Swipe Up"
+        case .multiFingerSwipe3Down: "3-Finger Swipe Down"
+        case .multiFingerSwipe4Left: "4-Finger Swipe Left"
+        case .multiFingerSwipe4Right: "4-Finger Swipe Right"
+        case .multiFingerSwipe4Up: "4-Finger Swipe Up"
+        case .multiFingerSwipe4Down: "4-Finger Swipe Down"
         }
     }
 }

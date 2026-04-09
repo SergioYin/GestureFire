@@ -22,11 +22,14 @@ public actor RecognitionLoop {
     /// Order is authoritative: when two recognizers report a gesture on the same
     /// frame, the earlier entry in this array wins.
     private static func makeRecognizers(sensitivity: SensitivityConfig) -> [any GestureRecognizer] {
-        // Recognizers added incrementally across Phase 3 steps 3-5.
-        // MultiFingerSwipe slots between MultiFingerTap and TipTap in step 5.
+        // Phase 3 priority order (highest first):
+        //   CornerTap → MultiFingerTap → MultiFingerSwipe → TipTap
+        // Rationale: most-constrained recognizer wins; stationary clusters
+        // resolve as taps before motion-based swipes get a chance.
         return [
             CornerTapRecognizer(sensitivity: sensitivity),
             MultiFingerTapRecognizer(sensitivity: sensitivity),
+            MultiFingerSwipeRecognizer(sensitivity: sensitivity),
             TipTapRecognizer(sensitivity: sensitivity),
         ]
     }
