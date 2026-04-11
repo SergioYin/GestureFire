@@ -43,6 +43,8 @@ public final class AppCoordinator {
     /// Tracks last reported finger count to avoid flooding pipeline with duplicate events.
     @ObservationIgnored private var lastReportedFingerCount = 0
 
+    @ObservationIgnored private var typingMonitor: TypingMonitor?
+
     /// Closure called on `.recognized` / `.shortcutFired` events.
     /// The App layer sets this to drive the StatusPanelController.
     @ObservationIgnored public var onStatusEvent: ((PipelineEvent) -> Void)?
@@ -99,6 +101,10 @@ public final class AppCoordinator {
         touchSource = nil
         engineState = .disabled
         hasPromptedThisCycle = false
+        if let monitor = typingMonitor {
+            Task { await monitor.stop() }
+            typingMonitor = nil
+        }
         Logger.engine.info("GestureFire stopped")
     }
 
@@ -154,6 +160,21 @@ public final class AppCoordinator {
     public func reloadSensitivity() async {
         let sensitivity = configStore.config.sensitivity
         await recognitionLoop.updateSensitivity(sensitivity)
+    }
+
+    public func reloadTypingSuppression() async {
+        if configStore.config.typingSuppressionEnabled {
+            if typingMonitor == nil {
+                let monitor = TypingMonitor()
+                typingMonitor = monitor
+                await monitor.start()
+            }
+        } else {
+            if let monitor = typingMonitor {
+                await monitor.stop()
+                typingMonitor = nil
+            }
+        }
     }
 
     // MARK: - Onboarding
@@ -249,6 +270,14 @@ public final class AppCoordinator {
 
         // Cleanup old logs
         try? fileLogger.cleanup()
+
+        // Start typing suppression if enabled.
+        // AXIsProcessTrusted() is confirmed at every call site of beginListening().
+        if configStore.config.typingSuppressionEnabled {
+            let monitor = TypingMonitor()
+            self.typingMonitor = monitor
+            Task { await monitor.start() }
+        }
     }
 
     /// Polls accessibility status every 2s using AXIsProcessTrusted() (read-only).
@@ -287,6 +316,17 @@ public final class AppCoordinator {
         }
 
         guard engineState.isOperational else { return }
+
+        // Palm rejection: skip gesture processing if user typed recently.
+        if let monitor = typingMonitor,
+           await monitor.isTypingSuppressed(windowMs: configStore.config.typingSuppressionWindowMs) {
+            if case .rejected(let r, _) = recentEvents.last, r == "typing" {
+                // Already logged this suppression window — avoid flooding the event ring buffer.
+            } else {
+                recordEvent(.rejected(reason: "typing", timestamp: Date()))
+            }
+            return
+        }
 
         // Count all active fingers (any state except notTouching/leaving)
         let activeCount = frame.points.filter { $0.state != .notTouching && $0.state != .leaving }.count

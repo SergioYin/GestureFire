@@ -19,6 +19,10 @@ public struct GestureFireConfig: Sendable, Codable, Equatable {
     public var launchAtLogin: Bool
     /// Whether to show the floating status panel on gesture recognition.
     public var statusPanelEnabled: Bool
+    /// Whether to suppress gesture recognition while the user is typing.
+    public var typingSuppressionEnabled: Bool
+    /// Milliseconds after a keystroke to suppress gestures. Range 100–2000. Default 500.
+    public var typingSuppressionWindowMs: Double
 
     public static let defaults = GestureFireConfig(
         version: 2,
@@ -28,7 +32,9 @@ public struct GestureFireConfig: Sendable, Codable, Equatable {
         soundEnabled: true,
         soundVolume: 0.5,
         launchAtLogin: false,
-        statusPanelEnabled: true
+        statusPanelEnabled: true,
+        typingSuppressionEnabled: true,
+        typingSuppressionWindowMs: 500
     )
 
     public init(
@@ -39,7 +45,9 @@ public struct GestureFireConfig: Sendable, Codable, Equatable {
         soundEnabled: Bool = true,
         soundVolume: Float = 0.5,
         launchAtLogin: Bool = false,
-        statusPanelEnabled: Bool = true
+        statusPanelEnabled: Bool = true,
+        typingSuppressionEnabled: Bool = true,
+        typingSuppressionWindowMs: Double = 500
     ) {
         self.version = version
         self.gestures = gestures
@@ -49,6 +57,8 @@ public struct GestureFireConfig: Sendable, Codable, Equatable {
         self.soundVolume = soundVolume
         self.launchAtLogin = launchAtLogin
         self.statusPanelEnabled = statusPanelEnabled
+        self.typingSuppressionEnabled = typingSuppressionEnabled
+        self.typingSuppressionWindowMs = typingSuppressionWindowMs
     }
 
     /// Look up the shortcut mapped to a gesture type.
@@ -61,6 +71,7 @@ public struct GestureFireConfig: Sendable, Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case version, gestures, sensitivity, hasCompletedOnboarding
         case soundEnabled, soundVolume, launchAtLogin, statusPanelEnabled
+        case typingSuppressionEnabled, typingSuppressionWindowMs
     }
 
     public init(from decoder: Decoder) throws {
@@ -73,5 +84,7 @@ public struct GestureFireConfig: Sendable, Codable, Equatable {
         soundVolume = try container.decodeIfPresent(Float.self, forKey: .soundVolume) ?? 0.5
         launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
         statusPanelEnabled = try container.decodeIfPresent(Bool.self, forKey: .statusPanelEnabled) ?? true
+        typingSuppressionEnabled = try container.decodeIfPresent(Bool.self, forKey: .typingSuppressionEnabled) ?? true
+        typingSuppressionWindowMs = try container.decodeIfPresent(Double.self, forKey: .typingSuppressionWindowMs) ?? 500
     }
 }

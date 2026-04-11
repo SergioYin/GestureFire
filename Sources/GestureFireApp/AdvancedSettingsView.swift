@@ -126,6 +126,56 @@ struct AdvancedSettingsView: View {
                 sectionHeader("Corner Tap")
             }
 
+            // MARK: Palm Rejection
+            Section {
+                Toggle(
+                    "Suppress gestures while typing",
+                    isOn: Binding(
+                        get: { coordinator.configStore.config.typingSuppressionEnabled },
+                        set: { newValue in
+                            coordinator.configStore.update { $0.typingSuppressionEnabled = newValue }
+                            Task { await coordinator.reloadTypingSuppression() }
+                        }
+                    )
+                )
+                .accessibilityHint("Prevents accidental gestures when your palms rest on the trackpad while typing.")
+
+                if coordinator.configStore.config.typingSuppressionEnabled {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        HStack {
+                            Text("Suppression Window")
+                                .font(.body)
+                            Spacer()
+                            Text("\(Int(coordinator.configStore.config.typingSuppressionWindowMs)) ms")
+                                .font(.title3.monospacedDigit())
+                                .foregroundStyle(.primary)
+                                .accessibilityHidden(true)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { coordinator.configStore.config.typingSuppressionWindowMs },
+                                set: { newValue in
+                                    coordinator.configStore.update { $0.typingSuppressionWindowMs = newValue }
+                                }
+                            ),
+                            in: 100...2000,
+                            step: 50
+                        )
+                        .tint(.accentColor)
+                        .accessibilityLabel("Suppression Window")
+                        .accessibilityValue("\(Int(coordinator.configStore.config.typingSuppressionWindowMs)) milliseconds")
+                        .accessibilityHint("How long after a keystroke to block gesture recognition.")
+                        Text("How long after a keystroke to block gestures. Lower values react faster; higher values give more protection.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                    }
+                    .padding(.vertical, Spacing.xs)
+                }
+            } header: {
+                sectionHeader("Palm Rejection")
+            }
+
             // MARK: Reset
             Section {
                 Button("Reset to Defaults") {
